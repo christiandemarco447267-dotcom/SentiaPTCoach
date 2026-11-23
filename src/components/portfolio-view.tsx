@@ -1,13 +1,22 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ArrowLeftRight } from "lucide-react";
+import { ArrowLeftRight, Briefcase } from "lucide-react";
 import { formatCurrency, formatNumber, formatPercent, formatSignedCurrency } from "@/lib/format";
 import { realizedPnl } from "@/lib/portfolio";
 import { useApp } from "@/lib/store";
-import { BenchmarkPanel } from "./benchmark-chart";
 import { CsvExport } from "./settings-extras";
-import { EmptyState, Loading, Panel, PageHeader, Sparkline, Stat } from "./ui";
+import { ChartSkeleton, EmptyState, Loading, Panel, PageHeader, Sparkline, Stat } from "./ui";
+
+const BenchmarkPanel = dynamic(() => import("./benchmark-chart").then((m) => m.BenchmarkPanel), {
+  ssr: false,
+  loading: () => (
+    <div className="panel">
+      <ChartSkeleton height={300} />
+    </div>
+  ),
+});
 
 export function PortfolioView() {
   const { ready, state, summary, actions } = useApp();
@@ -50,7 +59,7 @@ export function PortfolioView() {
           <span className="small muted">Realized P/L {formatSignedCurrency(realized)}</span>
         </div>
         {summary.holdings.length === 0 ? (
-          <EmptyState title="No positions yet" hint="Head to Trade to buy your first paper position." />
+          <EmptyState icon={<Briefcase size={24} />} title="No positions yet" hint="Buy your first paper position and it will show up here with its value and gain." action={{ label: "Make your first trade", href: "/app/trade" }} />
         ) : (
           <div className="list">
             {summary.holdings.map((holding) => {

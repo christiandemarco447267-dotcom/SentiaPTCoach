@@ -275,8 +275,8 @@ function ReportCardPanel({ card }: { card: ReturnType<typeof reportCard> }) {
         <div className="bench-stats bench-stats-2" style={{ flex: "1 1 260px", minWidth: 0 }}>
           <Mini label="Your return" value={formatPercent(card.returnPct, true)} tone={card.returnPct >= 0 ? "gain" : "loss"} />
           <Mini label="SPY return" value={formatPercent(card.spyReturnPct, true)} tone={card.spyReturnPct >= 0 ? "gain" : "loss"} />
-          <Mini label="Your max drawdown" value={`−${card.maxDrawdownPct.toFixed(1)}%`} tone="loss" />
-          <Mini label="SPY max drawdown" value={`−${card.spyMaxDrawdownPct.toFixed(1)}%`} tone="loss" />
+          <Mini label="Your max drawdown" value={formatPercent(-card.maxDrawdownPct, false, 1)} tone="loss" />
+          <Mini label="SPY max drawdown" value={formatPercent(-card.spyMaxDrawdownPct, false, 1)} tone="loss" />
         </div>
       </div>
       <div className="stack gap-sm">

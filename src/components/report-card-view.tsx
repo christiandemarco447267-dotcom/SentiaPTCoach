@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Bot, CalendarCheck, Lightbulb, TrendingDown, TrendingUp } from "lucide-react";
 import { askAiCoach, aiCoachConfigured } from "@/lib/ai-coach";
 import { buildCoachContext } from "@/lib/coach-context";
-import { formatCurrency, formatPercent } from "@/lib/format";
+import { formatCurrency, formatPercent, formatPoints } from "@/lib/format";
 import { buildWeeklyReport, dueReportWeek, reportPrompt, weekKey, weekLabel } from "@/lib/report-card";
 import { useApp } from "@/lib/store";
 import { SIM_DISCLAIMER } from "@/lib/site";
@@ -94,7 +94,7 @@ export function ReportCard({ report, preview = false }: { report: Pick<WeeklyRep
         </div>
         <div className="bench-stat stack" style={{ gap: 2 }}>
           <span className="small muted">vs benchmark</span>
-          <strong className={diff === null ? "dim" : diff >= 0 ? "gain" : "loss"}>{diff === null ? "—" : `${diff >= 0 ? "+" : "−"}${Math.abs(diff).toFixed(2)} pts`}</strong>
+          <strong className={diff === null ? "dim" : diff >= 0 ? "gain" : "loss"}>{diff === null ? "—" : formatPoints(diff)}</strong>
         </div>
         <div className="bench-stat stack" style={{ gap: 2 }}>
           <span className="small muted">Trades</span>

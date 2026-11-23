@@ -24,7 +24,7 @@ import { upsertReport } from "./report-card";
 import { showSystemNotification } from "./notify";
 import { assetPath } from "./asset";
 import { celebrate } from "./celebrate";
-import { formatCurrency, formatNumber } from "./format";
+import { formatCurrency, formatNumber, formatPercent } from "./format";
 import { processMarketTick, type TickResult } from "./market-tick";
 import { portfolioSymbols, summarizePortfolio, type PortfolioSummary } from "./portfolio";
 import * as mutations from "./storage";
@@ -44,7 +44,8 @@ import {
 } from "./types";
 import { friendlyAuthError } from "./auth-helpers";
 import { AUTOSAVE_DEBOUNCE_MS, createDebouncedSaver, isRemoteNewer, type DebouncedSaver } from "./cloud-sync";
-import { loadCloudState, saveCloudState, watchCloudState } from "./cloud-store";
+// Firestore sync loads on demand (signed-in accounts only), keeping the SDK off the guest path.
+const loadCloudStore = () => import("./cloud-store");
 import { normalizeSymbol } from "./validation";
 
 // ---- Market config ---------------------------------------------------------
@@ -100,7 +101,7 @@ function getSyncSnapshot(): SyncState {
 // ---- Toasts (order fills, price alerts) ------------------------------------
 
 export type ToastTone = "gain" | "loss" | "info";
-export type Toast = { id: number; title: string; body: string; tone: ToastTone };
+export type Toast = { id: number; title: string; body: string; tone: ToastTone; fx?: "badge" };
 /** Also show this toast as a system (phone) notification when the user turned that on. */
 type ToastNotify = { tag: string; url?: string };
 
@@ -139,9 +140,9 @@ function pushToast(toast: Omit<Toast, "id">, notify?: ToastNotify) {
 // ---- Celebrations -----------------------------------------------------------
 
 /** Confetti + haptics (per settings) with a matching toast. */
-export function celebrateNow(title: string, body: string) {
+export function celebrateNow(title: string, body: string, fx?: Toast["fx"]) {
   if (!current) return;
-  pushToast({ title, body, tone: "gain" });
+  pushToast({ title, body, tone: "gain", ...(fx ? { fx } : {}) });
   celebrate(current.settings);
 }
 
@@ -184,7 +185,7 @@ function announceTick(result: TickResult) {
 export function announceBadge(id: string) {
   const def = challengeOps.challengeForBadge(id);
   if (!def) return;
-  celebrateNow(`Badge earned: ${def.badge}`, `${def.title}. See it on the Challenges page.`);
+  celebrateNow(`Badge earned: ${def.badge}`, `${def.title}. See it on the Challenges page.`, "badge");
 }
 
 /** Run the fill engine, alerts and snapshotting against the newest quotes. */
@@ -319,14 +320,15 @@ function activate(next: StorageMode, force = false) {
   const { uid } = next;
   current = null;
   setSync({ status: "loading" });
-  saver = createDebouncedSaver<AppState>((state) => saveCloudState(uid, state), AUTOSAVE_DEBOUNCE_MS, {
+  saver = createDebouncedSaver<AppState>((state) => loadCloudStore().then((m) => m.saveCloudState(uid, state)), AUTOSAVE_DEBOUNCE_MS, {
     onStart: () => gen === generation && setSync({ status: "saving" }),
     onSuccess: () => gen === generation && !saver?.pending() && setSync({ status: "saved" }),
     onError: (error) => gen === generation && setSync({ status: "error", error: friendlyAuthError(error, "Couldn't save to the cloud. Your latest changes are kept in this tab; we'll retry on the next change.") }),
   });
 
-  loadCloudState(uid)
-    .then(({ exists, state }) => {
+  loadCloudStore()
+    .then(async (cloud) => ({ cloud, ...(await cloud.loadCloudState(uid)) }))
+    .then(({ cloud, exists, state }) => {
       if (gen !== generation) return;
       if (exists && !state) {
         // Never overwrite cloud data we can't read (e.g. written by a newer app version).
@@ -347,7 +349,7 @@ function activate(next: StorageMode, force = false) {
         saver?.schedule(seeded);
         void saver?.flush();
       }
-      unwatch = watchCloudState(
+      unwatch = cloud.watchCloudState(
         uid,
         (remote) => {
           if (gen !== generation || saver?.pending()) return;
@@ -413,7 +415,7 @@ function stepReplay(by: number | "end"): ReplayResult | null {
   const done = finished as ReplayResult | null;
   if (done) track("time_machine_finished");
   if (done && done.returnPct > done.spyReturnPct) {
-    celebrateNow("You beat the S&P 500", `Replay return ${done.returnPct.toFixed(1)}% vs SPY ${done.spyReturnPct.toFixed(1)}%.`);
+    celebrateNow("You beat the S&P 500", `Replay return ${formatPercent(done.returnPct, false, 1)} vs SPY ${formatPercent(done.spyReturnPct, false, 1)}.`);
   }
   return done;
 }

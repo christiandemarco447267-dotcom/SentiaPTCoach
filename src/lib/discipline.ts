@@ -6,6 +6,7 @@ import type { PortfolioSummary } from "./portfolio";
 import { BROAD_FUND_SECTORS, sectorOf } from "./sectors";
 import type { AppState } from "./types";
 import { normalizeSymbol } from "./validation";
+import { formatPercent } from "./format";
 
 export const DISCIPLINE_RULES = {
   /** Positions at or below this share of the total portfolio get full sizing credit. */
@@ -94,7 +95,7 @@ export function disciplineScore(state: AppState, summary: PortfolioSummary, now:
     points: r1(20 * sizingRatio),
     max: 20,
     detail: n
-      ? `Largest position: ${largest.symbol} at ${largest.pct.toFixed(0)}% of the portfolio${oversized ? ` (${oversized} above ${cap}%)` : ""}.`
+      ? `Largest position: ${largest.symbol} at ${formatPercent(largest.pct, false, 0)} of the portfolio${oversized ? ` (${oversized} above ${cap}%)` : ""}.`
       : "No positions to size yet.",
     tip: `Keep any single position at or below about ${cap}% of your portfolio.`,
   });

@@ -10,7 +10,7 @@ export function AuthCard({ title, subtitle, children, footer }: { title: string;
       <div className="container status-inner stack gap-lg animate-in" style={{ maxWidth: 480 }}>
         <Link href="/" className="brand" style={{ padding: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={assetPath("/icon.png")} alt="" className="brand-mark" width={36} height={36} />
+          <img src={assetPath("/brand-mark.webp")} alt="" className="brand-mark" width={36} height={36} decoding="async" />
           Sentia
         </Link>
         <div className="panel panel-pad-lg stack gap-md">

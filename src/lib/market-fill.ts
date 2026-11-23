@@ -7,12 +7,13 @@
 //   order fills at the price typed — the long-standing practice behaviour — and
 //   the UI says so.
 import type { Quote } from "./types";
+import { formatCurrency } from "./format";
 
 export type MarketFill =
   | { ok: true; price: number; basis: "live" | "typed" }
   | { ok: false; error: string };
 
-const money = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = (v: number) => formatCurrency(v);
 
 export function resolveMarketFill(side: "buy" | "sell", typedPrice: number | null, quote: Quote | undefined): MarketFill {
   const real = quote && quote.source !== "demo" && quote.price > 0;

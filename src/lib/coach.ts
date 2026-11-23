@@ -9,6 +9,7 @@ import { moodExtremes, moodStats } from "./moods";
 import { realizedPnl, type PortfolioSummary } from "./portfolio";
 import { BROAD_FUND_SECTORS, sectorOf, sectorWeights, type Sector } from "./sectors";
 import type { AppState } from "./types";
+import { formatCurrency, formatPercent, formatShares, formatSignedPercent } from "./format";
 
 export type CoachContext = { state: AppState; summary: PortfolioSummary; /** Defaults to Date.now(). */ now?: number };
 
@@ -57,8 +58,8 @@ export const SUGGESTED_QUESTIONS = [
 
 export const COACH_DISCLAIMER = "Educational coaching from your paper account only — not investment advice.";
 
-const pct = (v: number, digits = 0) => `${v.toFixed(digits)}%`;
-const money = (v: number) => `${v < 0 ? "−" : ""}$${Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const pct = (v: number, digits = 0) => formatPercent(v, false, digits);
+const money = (v: number) => formatCurrency(v);
 
 const SECTOR_WORDS: [RegExp, Sector][] = [
   [/\btech|technology|software|chip|semis?\b/, "Technology"],
@@ -140,7 +141,7 @@ function mentionedHolding(question: string, summary: PortfolioSummary) {
 
 function positionLine(h: PortfolioSummary["holdings"][number], total: number): string {
   const weight = total > 0 ? (h.marketValue / total) * 100 : 0;
-  return `You hold ${h.shares.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${h.symbol} at an average cost of ${money(h.avgCost)}, worth ${money(h.marketValue)} (${pct(weight)} of your portfolio), ${h.gain >= 0 ? "up" : "down"} ${money(Math.abs(h.gain))} (${h.gainPercent >= 0 ? "+" : "−"}${Math.abs(h.gainPercent).toFixed(2)}%).`;
+  return `You hold ${formatShares(h.shares)} ${h.symbol} at an average cost of ${money(h.avgCost)}, worth ${money(h.marketValue)} (${pct(weight)} of your portfolio), ${h.gain >= 0 ? "up" : "down"} ${money(Math.abs(h.gain))} (${formatSignedPercent(h.gainPercent)}).`;
 }
 
 export function ruleBasedAnswer(question: string, ctx: CoachContext): CoachReply {
@@ -174,7 +175,7 @@ export function ruleBasedAnswer(question: string, ctx: CoachContext): CoachReply
       const word = intent === "winner" ? "best" : "weakest";
       return {
         intent,
-        text: `Your ${word} open position is ${pick.symbol}: ${pick.gainPercent >= 0 ? "+" : ""}${pick.gainPercent.toFixed(2)}% (${money(pick.gain)}) on a ${money(pick.costBasis)} cost basis. ${intent === "winner" ? "Check that it hasn't grown into an oversized position." : "Revisit its thesis: did the story change, or only the price?"}`,
+        text: `Your ${word} open position is ${pick.symbol}: ${formatSignedPercent(pick.gainPercent)} (${money(pick.gain)}) on a ${money(pick.costBasis)} cost basis. ${intent === "winner" ? "Check that it hasn't grown into an oversized position." : "Revisit its thesis: did the story change, or only the price?"}`,
         bullets,
         links: [{ href: "/app/thesis", label: "Review theses" }],
       };
@@ -241,7 +242,7 @@ export function ruleBasedAnswer(question: string, ctx: CoachContext): CoachReply
         text: best
           ? `Your best results came from trades entered feeling ${best.label.toLowerCase()} (${money(best.realized)} realized).${worst ? ` The weakest: ${worst.label.toLowerCase()} (${money(worst.realized)}).` : ""}`
           : `You've tagged ${tagged} trades, but none of them are closed yet.`,
-        bullets: stats.filter((s) => s.trades).map((s) => `${s.emoji} ${s.label}: ${s.trades} trades, ${s.closed} closed${s.winRate !== null ? `, ${s.winRate.toFixed(0)}% win rate` : ""}`),
+        bullets: stats.filter((s) => s.trades).map((s) => `${s.emoji} ${s.label}: ${s.trades} trades, ${s.closed} closed${s.winRate !== null ? `, ${formatPercent(s.winRate, false, 0)} win rate` : ""}`),
         links: [{ href: "/app/insights", label: "Mood breakdown" }],
       };
     }
@@ -259,8 +260,8 @@ export function ruleBasedAnswer(question: string, ctx: CoachContext): CoachReply
       const w = winRate(state.transactions);
       return {
         intent,
-        text: b.points.length >= 2 ? `Since tracking began you're ${b.totalReturnPct >= 0 ? "up" : "down"} ${Math.abs(b.totalReturnPct).toFixed(2)}% vs SPY ${b.spyReturnPct >= 0 ? "+" : "−"}${Math.abs(b.spyReturnPct).toFixed(2)}%.` : "The benchmark chart is still collecting data — it fills in as prices update.",
-        bullets: [`Realized P/L: ${money(realizedPnl(state))}`, w.percent === null ? "No closed trades yet." : `Win rate: ${w.percent.toFixed(0)}% (${w.wins}/${w.closed})`],
+        text: b.points.length >= 2 ? `Since tracking began you're ${b.totalReturnPct >= 0 ? "up" : "down"} ${formatPercent(Math.abs(b.totalReturnPct))} vs SPY ${formatSignedPercent(b.spyReturnPct)}.` : "The benchmark chart is still collecting data — it fills in as prices update.",
+        bullets: [`Realized P/L: ${money(realizedPnl(state))}`, w.percent === null ? "No closed trades yet." : `Win rate: ${formatPercent(w.percent, false, 0)} (${w.wins}/${w.closed})`],
         links: [{ href: "/app/portfolio", label: "You vs. S&P 500" }],
       };
     }

@@ -23,7 +23,7 @@ export function LegalPage({
         <header className="row between" style={{ padding: "24px 0" }}>
           <Link href="/" className="brand">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={assetPath("/icon.png")} alt="" className="brand-mark" width={36} height={36} />
+            <img src={assetPath("/brand-mark.webp")} alt="" className="brand-mark" width={36} height={36} decoding="async" />
             Sentia
           </Link>
           <Link href="/app" className="btn btn-sm">

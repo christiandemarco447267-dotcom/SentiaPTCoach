@@ -6,6 +6,7 @@ import { LEGEND_PORTFOLIOS } from "@/data/legends";
 import { compareWithLegend } from "@/lib/legends";
 import { useApp } from "@/lib/store";
 import { EmptyState, Loading, Panel, PageHeader } from "./ui";
+import { formatPercent } from "@/lib/format";
 
 export function LegendsView() {
   const { ready, summary } = useApp();
@@ -42,9 +43,9 @@ export function LegendsView() {
         </div>
         <span className="muted small">{legend.description}</span>
         <div className="bench-stats bench-stats-4">
-          <Mini label="Overlap with you" value={hasHoldings ? `${comparison.overlapPct.toFixed(0)}%` : "—"} hint="Σ of the smaller weight per shared stock" />
+          <Mini label="Overlap with you" value={hasHoldings ? formatPercent(comparison.overlapPct, false, 0) : "—"} hint="Σ of the smaller weight per shared stock" />
           <Mini label="Shared holdings" value={String(comparison.shared.length)} hint={comparison.shared.map((s) => s.symbol).join(", ") || "None"} />
-          <Mini label="Top position" value={`You ${comparison.you.top1.toFixed(0)}% · ${comparison.legend.top1.toFixed(0)}%`} hint="Largest single weight" />
+          <Mini label="Top position" value={`You ${formatPercent(comparison.you.top1, false, 0)} · ${formatPercent(comparison.legend.top1, false, 0)}`} hint="Largest single weight" />
           <Mini
             label="Effective # holdings"
             value={`You ${comparison.you.effectiveHoldings.toFixed(1)} · ${comparison.legend.effectiveHoldings.toFixed(1)}`}
@@ -70,17 +71,17 @@ export function LegendsView() {
                   <span className="truncate" title={row.sector}>
                     {row.sector}
                   </span>
-                  <span className="row gap-sm" title={`You: ${row.you.toFixed(1)}%`}>
+                  <span className="row gap-sm" title={`You: ${formatPercent(row.you, false, 1)}`}>
                     <span className="hbar hbar-you grow">
                       <span style={{ width: `${row.you}%` }} />
                     </span>
-                    <span style={{ minWidth: 34, textAlign: "right" }}>{row.you.toFixed(0)}%</span>
+                    <span style={{ minWidth: 34, textAlign: "right" }}>{formatPercent(row.you, false, 0)}</span>
                   </span>
-                  <span className="row gap-sm" title={`${legend.name}: ${row.legend.toFixed(1)}%`}>
+                  <span className="row gap-sm" title={`${legend.name}: ${formatPercent(row.legend, false, 1)}`}>
                     <span className="hbar hbar-legend grow">
                       <span style={{ width: `${row.legend}%` }} />
                     </span>
-                    <span style={{ minWidth: 34, textAlign: "right" }}>{row.legend.toFixed(0)}%</span>
+                    <span style={{ minWidth: 34, textAlign: "right" }}>{formatPercent(row.legend, false, 0)}</span>
                   </span>
                 </div>
               ))}
@@ -101,14 +102,14 @@ export function LegendsView() {
                   </span>
                   <span className="grow small truncate">{h.name}</span>
                   {shared ? <span className="pill pill-primary pill-compact">You own</span> : null}
-                  <strong className="small">{h.weight.toFixed(2)}%</strong>
+                  <strong className="small">{formatPercent(h.weight)}</strong>
                 </div>
               );
             })}
             {legend.otherWeight > 0 ? (
               <div className="list-row small dim" style={{ padding: "8px 0" }}>
                 <span className="grow">All other positions</span>
-                <span>{legend.otherWeight.toFixed(2)}%</span>
+                <span>{formatPercent(legend.otherWeight)}</span>
               </div>
             ) : null}
           </div>

@@ -9,6 +9,7 @@ import { localDayKey } from "./market";
 import { round2 } from "./portfolio";
 import type { AppState, PerfSnapshot, ReportTrade, Transaction, WeeklyReport } from "./types";
 import { LIMITS } from "./validation";
+import { formatPercent } from "./format";
 
 const DAY = 86_400_000;
 const ms = (iso: string) => new Date(iso).getTime();
@@ -203,8 +204,8 @@ export function upsertReport(reports: WeeklyReport[], report: WeeklyReport): Wee
 
 /** Compact text the AI coach gets (alongside the account summary) to write the tip. */
 export function reportPrompt(r: Pick<WeeklyReport, "grade" | "score" | "returnPct" | "spyReturnPct" | "trades" | "notes">): string {
-  const ret = r.returnPct === null ? "not available" : `${r.returnPct.toFixed(2)}%`;
-  const spy = r.spyReturnPct === null ? "not available" : `${r.spyReturnPct.toFixed(2)}%`;
+  const ret = r.returnPct === null ? "not available" : formatPercent(r.returnPct);
+  const spy = r.spyReturnPct === null ? "not available" : formatPercent(r.spyReturnPct);
   return [
     `Write ONE short coaching tip (max 2 sentences) for my next week of paper trading, based on my weekly report card.`,
     `Grade ${r.grade} (${r.score}/100). Trades: ${r.trades}. My return ${ret}, S&P 500 (SPY) ${spy}.`,

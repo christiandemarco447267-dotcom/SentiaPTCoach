@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Bell, BellPlus, BellRing, Trash2 } from "lucide-react";
+import { Bell, BellPlus, BellRing, Star, Trash2 } from "lucide-react";
 import { alertCrossed } from "@/lib/alerts";
 import { formatCurrency, formatPercent, formatRelativeDay } from "@/lib/format";
 import { nameForSymbol } from "@/lib/market";
@@ -113,6 +113,13 @@ function AlertRow({ alert, price }: { alert: PriceAlert; price?: number }) {
   );
 }
 
+function focusFirstAlertButton() {
+  const btn = document.querySelector<HTMLButtonElement>("[data-alert-button]");
+  if (!btn) return;
+  btn.scrollIntoView({ block: "center", behavior: "smooth" });
+  btn.focus({ preventScroll: true });
+}
+
 export function WatchlistView() {
   const { ready, state, quotes, actions } = useApp();
   const prices = useMemo(() => quoteMap(quotes), [quotes]);
@@ -178,7 +185,7 @@ export function WatchlistView() {
         </form>
 
         {state.watchlist.length === 0 ? (
-          <EmptyState title="Your watchlist is empty" hint="Star tickers in Markets or Trade, or add one above." />
+          <EmptyState icon={<Star size={24} />} title="Your watchlist is empty" hint="Star tickers you want to keep an eye on. They show up here with live prices and alerts." action={{ label: "Browse markets", href: "/app/markets" }} />
         ) : (
           <div className="list">
             {state.watchlist.map((symbol) => {
@@ -207,6 +214,7 @@ export function WatchlistView() {
                         onClick={() => setAlertFor(alertFor === symbol ? null : symbol)}
                         aria-expanded={alertFor === symbol}
                         aria-label={`Add a price alert for ${symbol}`}
+                        data-alert-button
                       >
                         <BellPlus size={15} /> {count ? `${count} alert${count > 1 ? "s" : ""}` : "Alert"}
                       </button>
@@ -232,7 +240,16 @@ export function WatchlistView() {
             <BellRing size={17} /> Active alerts
           </strong>
           {active.length === 0 ? (
-            <EmptyState title="No active alerts" hint="Use the Alert button on a watched ticker." />
+            <EmptyState
+              icon={<BellRing size={24} />}
+              title="No price alerts yet"
+              hint="Get a heads-up when a stock hits your price. Tap Alert next to any ticker on your watchlist."
+              action={
+                state.watchlist.length
+                  ? { label: "Set an alert", onClick: focusFirstAlertButton }
+                  : { label: "Find a ticker", href: "/app/markets" }
+              }
+            />
           ) : (
             <div className="list">
               {active.map((alert) => (

@@ -1,8 +1,12 @@
 "use client";
 
-import { onIdTokenChanged, signOut as firebaseSignOut, type User } from "firebase/auth";
+import type { User } from "firebase/auth";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { firebaseAuth, isFirebaseConfigured } from "./firebase";
+import { isFirebaseConfigured } from "./firebase-config";
+
+// The Firebase SDK (~100 KB+ gzipped) loads on demand, only when accounts are configured,
+// so guest/demo visitors never download it.
+const loadAuthSdk = () => Promise.all([import("firebase/auth"), import("./firebase")]).then(([sdk, fb]) => ({ sdk, auth: fb.firebaseAuth() }));
 import { deactivateStore, flushCloudSave } from "./store";
 
 // ---- Guest (demo) mode flag ------------------------------------------------
@@ -65,19 +69,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
-    // onIdTokenChanged also fires after getIdToken(true), so a refreshed
-    // email_verified claim reaches the UI (onAuthStateChanged would not).
-    return onIdTokenChanged(firebaseAuth(), (user) => {
-      setSnapshot({ user, emailVerified: Boolean(user?.emailVerified) });
-      if (user) writeGuest(false);
-    });
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+    void loadAuthSdk()
+      .then(({ sdk, auth }) => {
+        if (cancelled) return;
+        // onIdTokenChanged also fires after getIdToken(true), so a refreshed
+        // email_verified claim reaches the UI (onAuthStateChanged would not).
+        unsubscribe = sdk.onIdTokenChanged(auth, (user) => {
+          setSnapshot({ user, emailVerified: Boolean(user?.emailVerified) });
+          if (user) writeGuest(false);
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setSnapshot({ user: null, emailVerified: false });
+      });
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, []);
 
   const refreshUser = useCallback(async () => {
-    const user = firebaseAuth().currentUser;
+    if (!isFirebaseConfigured) return false;
+    const { auth } = await loadAuthSdk();
+    const user = auth.currentUser;
     if (!user) return false;
     await user.reload();
-    const fresh = firebaseAuth().currentUser;
+    const fresh = auth.currentUser;
     if (!fresh) return false;
     await fresh.getIdToken(true);
     setSnapshot({ user: fresh, emailVerified: fresh.emailVerified });
@@ -92,7 +111,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     deactivateStore();
     writeGuest(false);
-    if (isFirebaseConfigured) await firebaseSignOut(firebaseAuth());
+    if (isFirebaseConfigured) {
+      const { sdk, auth } = await loadAuthSdk();
+      await sdk.signOut(auth);
+    }
   }, []);
 
   const value = useMemo<AuthApi>(

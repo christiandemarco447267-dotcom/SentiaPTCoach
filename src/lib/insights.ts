@@ -1,5 +1,6 @@
 import type { PortfolioSummary } from "./portfolio";
 import type { AppState } from "./types";
+import { formatPercent } from "./format";
 
 export type InsightTone = "good" | "watch" | "info";
 
@@ -44,8 +45,8 @@ export function buildInsights(state: AppState, summary: PortfolioSummary): Insig
       title: "Concentration check",
       body:
         weight >= 40
-          ? `${top.symbol} is ${weight.toFixed(0)}% of your invested value. Consider trimming or diversifying to reduce single-name risk.`
-          : `Your largest position (${top.symbol}) is ${weight.toFixed(0)}% of invested value — a reasonably balanced book.`,
+          ? `${top.symbol} is ${formatPercent(weight, false, 0)} of your invested value. Consider trimming or diversifying to reduce single-name risk.`
+          : `Your largest position (${top.symbol}) is ${formatPercent(weight, false, 0)} of invested value — a reasonably balanced book.`,
       tone: weight >= 40 ? "watch" : "good",
     });
   }
@@ -59,7 +60,7 @@ export function buildInsights(state: AppState, summary: PortfolioSummary): Insig
       body:
         cashPct < 2
           ? "You're nearly fully invested. Keeping a little cash gives you room to act on opportunities without forced selling."
-          : `Cash is ${cashPct.toFixed(0)}% of your portfolio — dry powder for future buys.`,
+          : `Cash is ${formatPercent(cashPct, false, 0)} of your portfolio — dry powder for future buys.`,
       tone: cashPct < 2 ? "watch" : "good",
     });
   }

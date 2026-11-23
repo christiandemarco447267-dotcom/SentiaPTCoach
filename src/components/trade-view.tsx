@@ -1,14 +1,16 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, Clock3, Lightbulb, NotebookPen, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Clock3, Lightbulb, NotebookPen, X } from "lucide-react";
 import { previewTradeBiases } from "@/lib/biases";
 import { MOOD_INFO } from "@/lib/moods";
 import { MOODS, type Mood } from "@/lib/types";
 import { ShareTradeButton } from "./share-card";
-import { formatCurrency, formatNumber, formatRelativeDay } from "@/lib/format";
+import { formatCurrency, formatNumber, formatRelativeDay, formatPercent } from "@/lib/format";
 import { track } from "@/lib/analytics";
+import { playTradeFx } from "@/lib/trade-fx";
+import { TRADE_SIDE_EVENT } from "@/lib/shortcuts";
 import { formatAsOfET } from "@/lib/live-quotes";
 import { demoQuote, nameForSymbol, priceSourceOf } from "@/lib/market";
 import { resolveMarketFill } from "@/lib/market-fill";
@@ -56,7 +58,24 @@ export function TradeView() {
   const searchParams = useSearchParams();
   const initialSymbol = searchParams.get("symbol") ?? "";
 
-  const [mode, setMode] = useState<Mode>("buy");
+  const [mode, setMode] = useState<Mode>(searchParams.get("side") === "sell" ? "sell" : "buy");
+  // Keyboard shortcuts: B / S switch sides here, "/" (from another page) lands focused on the search.
+  useEffect(() => {
+    const onSide = (e: Event) => {
+      const side = (e as CustomEvent<string>).detail;
+      if (side !== "buy" && side !== "sell") return;
+      setMode(side);
+      document.getElementById("symbol")?.focus();
+    };
+    window.addEventListener(TRADE_SIDE_EVENT, onSide);
+    return () => window.removeEventListener(TRADE_SIDE_EVENT, onSide);
+  }, []);
+  const focusParam = searchParams.get("focus") ?? searchParams.get("side");
+  useEffect(() => {
+    if (!focusParam || !ready) return;
+    const t = window.setTimeout(() => document.getElementById("symbol")?.focus(), 50);
+    return () => window.clearTimeout(t);
+  }, [focusParam, ready]);
   const [kind, setKind] = useState<OrderKind>("market");
   const [symbol, setSymbol] = useState(initialSymbol.toUpperCase());
   const [shares, setShares] = useState("");
@@ -192,10 +211,12 @@ export function TradeView() {
       }
       if (mode === "buy") {
         actions.buy({ symbol: normalized, shares: sharesNum, price: fill.price, ...meta });
+        playTradeFx("buy", sharesNum, normalized, document.getElementById("trade-submit"));
         setNotice(`Bought ${formatNumber(sharesNum)} ${normalized} at ${formatCurrency(fill.price)}${at}.`);
       } else {
         const afterId = state.transactions.at(-1)?.id ?? null;
         actions.sell({ symbol: normalized, shares: sharesNum, price: fill.price, ...meta });
+        playTradeFx("sell", sharesNum, normalized, document.getElementById("trade-submit"));
         setNotice(`Sold ${formatNumber(sharesNum)} ${normalized} at ${formatCurrency(fill.price)}${at}.`);
         setReviewAfter({ afterId, symbol: normalized });
       }
@@ -213,6 +234,7 @@ export function TradeView() {
     setChecklist(null);
     try {
       actions.buy({ symbol: sym, shares: qty, price: px, ...meta, plan });
+      playTradeFx("buy", qty, sym, document.getElementById("trade-submit"));
       setNotice(`Bought ${formatNumber(qty)} ${sym} at ${formatCurrency(px)}${at}.${plan ? " Plan saved with the trade." : ""}`);
       track("trade_placed");
       setShares("");
@@ -232,9 +254,9 @@ export function TradeView() {
     <div className="stack gap-lg animate-in">
       <PageHeader title="Trade" subtitle="Simulated buy & sell. Cash moves, cost basis averages, gains realize on sale." />
 
-      <div className="grid grid-2">
-        <div className="stack gap-lg" style={{ minWidth: 0 }}>
-        <Panel strong className="stack gap-md">
+      <div className="grid grid-2 trade-layout">
+        <div className="stack gap-lg trade-col-main" style={{ minWidth: 0 }}>
+        <Panel strong className="stack gap-md trade-order">
           <div className="row gap-sm" role="group" aria-label="Order side">
             <button
               type="button"
@@ -350,7 +372,7 @@ export function TradeView() {
               <div className="nudge small" role="note">
                 <Lightbulb size={16} />
                 <span>
-                  <strong>Check the price.</strong> {formatCurrency(priceNum ?? 0)} is {Math.abs(deviationPct).toFixed(0)}%{" "}
+                  <strong>Check the price.</strong> {formatCurrency(priceNum ?? 0)} is {formatPercent(Math.abs(deviationPct), false, 0)}{" "}
                   {deviationPct > 0 ? "above" : "below"} the market ({formatCurrency(quote.price)}). Paper trades fill at the
                   price you enter, so this would {mode === "buy" ? (deviationPct > 0 ? "start you at a loss" : "book an instant paper gain") : deviationPct > 0 ? "book a gain the market isn't offering" : "sell below what the market pays"}.{" "}
                   <button type="button" className="link-btn" onClick={useMarketPrice}>
@@ -410,7 +432,7 @@ export function TradeView() {
               </span>
             ) : null}
 
-            <button type="submit" className="btn btn-primary btn-block">
+            <button type="submit" id="trade-submit" className="btn btn-primary btn-block">
               {kind === "market"
                 ? mode === "buy"
                   ? "Buy shares"
@@ -419,6 +441,7 @@ export function TradeView() {
             </button>
           </form>
         </Panel>
+        <div className="trade-sizer">
         {mode === "buy" ? (
           <PositionSizer
             accountValue={summary?.total ?? state.cash}
@@ -432,11 +455,12 @@ export function TradeView() {
           />
         ) : null}
         </div>
+        </div>
 
-        <Panel className="stack gap-md">
+        <Panel className="stack gap-md trade-activity">
           <strong>Recent activity</strong>
           {recent.length === 0 ? (
-            <EmptyState title="No transactions yet" />
+            <EmptyState icon={<ArrowLeftRight size={24} />} title="No trades yet" hint="Pick a ticker, choose how many shares, and place your first practice trade. It's all play money." action={{ label: "Start a trade", onClick: () => document.getElementById("symbol")?.focus() }} />
           ) : (
             <div className="list">
               {recent.map((tx) => (

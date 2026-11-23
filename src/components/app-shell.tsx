@@ -1,6 +1,7 @@
 "use client";
 
 import clsx from "clsx";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -32,16 +33,23 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { AppProvider, retryCloudLoad, useApp } from "@/lib/store";
 import { AuthGate } from "./auth/auth-gate";
 import { assetPath } from "@/lib/asset";
-import { experienceLabel, initialsOf } from "@/lib/profile";
-import { OnboardingTour } from "./onboarding-tour";
+import { experienceLabel, initialsOf, avatarInk } from "@/lib/profile";
 import { DemoPricesBadge, Loading, ToastHost } from "./ui";
-import { ProfileSetup } from "./profile-setup";
-import { DisciplineWatcher } from "./discipline-card";
 import { FeedbackButton } from "./feedback-sheet";
-import { AnalyticsNotice, MicroSurvey, PageViewTracker } from "./pilot-prompts";
-import { ReportCardWatcher } from "./report-card-view";
-import { ChallengeWatcher } from "./challenges-view";
-import { PushAlertSync } from "./settings-extras";
+import { FoldWatcher } from "./fold-watcher";
+import { PageViewTracker } from "./pilot-prompts";
+
+// Overlays and background watchers aren't needed for first paint: load them after hydration
+// so each page's first-load JavaScript stays small.
+const OnboardingTour = dynamic(() => import("./onboarding-tour").then((m) => m.OnboardingTour), { ssr: false });
+const ProfileSetup = dynamic(() => import("./profile-setup").then((m) => m.ProfileSetup), { ssr: false });
+const DisciplineWatcher = dynamic(() => import("./discipline-card").then((m) => m.DisciplineWatcher), { ssr: false });
+const ReportCardWatcher = dynamic(() => import("./report-card-view").then((m) => m.ReportCardWatcher), { ssr: false });
+const ChallengeWatcher = dynamic(() => import("./challenges-view").then((m) => m.ChallengeWatcher), { ssr: false });
+const PushAlertSync = dynamic(() => import("./settings-extras").then((m) => m.PushAlertSync), { ssr: false });
+const AnalyticsNotice = dynamic(() => import("./pilot-prompts").then((m) => m.AnalyticsNotice), { ssr: false });
+const MicroSurvey = dynamic(() => import("./pilot-prompts").then((m) => m.MicroSurvey), { ssr: false });
+const KeyboardShortcuts = dynamic(() => import("./keyboard-shortcuts").then((m) => m.KeyboardShortcuts), { ssr: false });
 
 type NavItem = { href: string; label: string; icon: ComponentType<{ size?: number }>; section: string };
 
@@ -102,7 +110,7 @@ function BrandMark({ onClick }: { onClick?: () => void }) {
   return (
     <Link href="/" className="brand" onClick={onClick} aria-label="Sentia home">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={assetPath("/icon.png")} alt="" className="brand-mark" width={36} height={36} />
+      <img src={assetPath("/brand-mark.webp")} alt="" className="brand-mark" width={36} height={36} decoding="async" />
       Sentia
     </Link>
   );
@@ -116,7 +124,7 @@ function ProfileChip({ onNavigate }: { onNavigate?: () => void }) {
   const subtitle = experienceLabel(state?.profile.experience ?? null) || "Tap to personalize";
   return (
     <Link href="/app/settings" onClick={onNavigate} className="profile-chip" style={{ marginTop: onNavigate ? "auto" : 0 }}>
-      <span className="avatar" style={{ background: color }}>
+      <span className="avatar" style={{ background: color, color: avatarInk(color) }}>
         {initials || <UserRound size={18} />}
       </span>
       <span className="stack" style={{ gap: 0, minWidth: 0 }}>
@@ -316,6 +324,8 @@ function Shell({ children }: { children: React.ReactNode }) {
       <ProfileSetup />
       <OnboardingTour />
       <ToastHost />
+      <KeyboardShortcuts />
+      <FoldWatcher />
       <DisciplineWatcher />
       <ReportCardWatcher />
       <ChallengeWatcher />

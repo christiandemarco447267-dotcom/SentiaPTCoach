@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Award, CheckCircle2, ClipboardCheck, Layers, NotebookPen, ShieldCheck, Target, TrendingUp } from "lucide-react";
 import type { ComponentType } from "react";
 import { CHALLENGES, evaluateChallenges, newlyEarned, type ChallengeId } from "@/lib/challenges";
 import { formatDate } from "@/lib/format";
 import { announceBadge, useApp } from "@/lib/store";
 import { goalInfo } from "@/lib/goals";
-import { Loading, Panel, PageHeader } from "./ui";
+import { prefersReducedMotion } from "@/lib/celebrate";
+import { EmptyState, Loading, Panel, PageHeader } from "./ui";
 
 const ICONS: Record<ChallengeId, ComponentType<{ size?: number }>> = {
   "beat-spy-month": TrendingUp,
@@ -50,6 +51,8 @@ export function ChallengesView() {
   const { ready, state, summary } = useApp();
   // eslint-disable-next-line react-hooks/purity -- monthly challenges are relative to now
   const progress = useMemo(() => (state ? evaluateChallenges(state, summary, Date.now()) : []), [state, summary]);
+  // Badges earned in the last minute get a little pop when this page opens.
+  const [mountedAt] = useState(() => Date.now());
   if (!ready || !state) return <Loading />;
 
   const goal = state.profile.goal;
@@ -68,7 +71,7 @@ export function ChallengesView() {
             Your goal: <strong>{goalInfo(goal).label}</strong>. Its challenge is pinned first.
           </span>
           <span className="grow" />
-          <Link href="/app/settings" className="small muted">
+          <Link href="/app/settings" className="small muted tap-link">
             Change goal
           </Link>
         </Panel>
@@ -122,7 +125,12 @@ export function ChallengesView() {
           <Award size={18} /> Your badges
         </strong>
         {badges.length === 0 ? (
-          <span className="small muted">No badges yet. Pick a challenge above and you&apos;ll get a little celebration when you finish it.</span>
+          <EmptyState
+            icon={<Award size={24} />}
+            title="No badges yet"
+            hint="Pick a challenge above. You'll get a little celebration when you finish it."
+            action={{ label: "Pick a challenge", onClick: () => window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" }) }}
+          />
         ) : (
           <div className="badge-shelf">
             {badges.map((b) => {
@@ -131,7 +139,7 @@ export function ChallengesView() {
               const Icon = ICONS[def.id];
               const period = b.id.split(":")[1];
               return (
-                <div key={b.id} className="badge-medal" title={def.title}>
+                <div key={b.id} className={`badge-medal${Date.parse(b.earnedAt) > mountedAt - 60_000 ? " badge-earned-fx" : ""}`} title={def.title}>
                   <span className="badge-medal-icon" aria-hidden="true">
                     <Icon size={22} />
                   </span>

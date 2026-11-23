@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, LineChart, Lock, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Award, BellRing, ClipboardCheck, Compass, LineChart, Lock, MessageCircle, NotebookPen, Palette, ShieldCheck, Sparkles } from "lucide-react";
 import { assetPath } from "@/lib/asset";
 import { SiteFooter } from "./site-footer";
 
@@ -27,6 +27,18 @@ const TRUST = [
   },
 ];
 
+// "What's inside": real screenshots of the app (public/inside/*.webp, 800x600, regenerated from a
+// local build with demo data).
+const INSIDE = [
+  { img: "guided-session", icon: Compass, title: "Guided first session", body: "A 60-second walkthrough: pick a goal, make your first practice trade, meet the coach." },
+  { img: "journal", icon: NotebookPen, title: "Journal & trade reviews", body: "Every buy keeps its plan. After you sell, rate the trade and write down one lesson." },
+  { img: "challenges", icon: Award, title: "Challenges & badges", body: "Small goals that build habits, like planning every trade or holding through a dip." },
+  { img: "report-card", icon: ClipboardCheck, title: "Weekly report card", body: "A letter grade each Monday: your return vs. the S&P 500, best and worst trade, and one tip." },
+  { img: "coach", icon: MessageCircle, title: "Ask Sentia, your AI coach", body: "Ask about your own portfolio in plain English: concentration, cash, biases, winners." },
+  { img: "alerts", icon: BellRing, title: "Watchlist & price alerts", body: "Star tickers, set a price, and get a heads-up when a stock gets there." },
+  { img: "themes", icon: Palette, title: "Light, dark or system", body: "A calm glass look in dark or light. It can follow your device automatically." },
+] as const;
+
 export function Landing() {
   return (
     <main className="landing">
@@ -35,7 +47,7 @@ export function Landing() {
         <header className="row between" style={{ padding: "24px 0" }}>
           <div className="brand">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={assetPath("/icon.png")} alt="" className="brand-mark" width={36} height={36} />
+            <img src={assetPath("/brand-mark.webp")} alt="" className="brand-mark" width={36} height={36} decoding="async" />
             Sentia
           </div>
           <span className="row gap-sm">
@@ -82,6 +94,43 @@ export function Landing() {
               <span className="small muted">{body}</span>
             </div>
           ))}
+        </section>
+
+        <section className="stack gap-lg" style={{ padding: "8px 0 72px" }} aria-labelledby="inside-title">
+          <div className="stack gap-sm" style={{ maxWidth: 640 }}>
+            <span className="eyebrow">What&apos;s inside</span>
+            <h2 id="inside-title" className="display-lg" style={{ margin: 0, fontSize: "clamp(1.6rem, 3.5vw, 2.25rem)" }}>
+              Everything you need to practice like a pro
+            </h2>
+            <p className="muted" style={{ margin: 0 }}>
+              Real screens from the app. Everything runs on play money, so mistakes cost nothing and teach a lot.
+            </p>
+          </div>
+          <div className="inside-grid">
+            {INSIDE.map(({ img, icon: Icon, title, body }) => (
+              <article key={img} className="panel inside-card">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  className="inside-shot"
+                  src={assetPath(`/inside/${img}.webp`)}
+                  alt={`Sentia screen: ${title}`}
+                  width={800}
+                  height={600}
+                  loading="lazy"
+                  decoding="async"
+                />
+                <h3>
+                  <Icon size={18} aria-hidden="true" /> {title}
+                </h3>
+                <p>{body}</p>
+              </article>
+            ))}
+          </div>
+          <div className="row wrap gap-md">
+            <Link href="/app" className="btn btn-primary">
+              Try it now, free <ArrowRight size={16} />
+            </Link>
+          </div>
         </section>
 
         <SiteFooter />

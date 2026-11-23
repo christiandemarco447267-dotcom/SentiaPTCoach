@@ -1,12 +1,10 @@
 "use client";
 
-import { sendEmailVerification } from "firebase/auth";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Cloud, MailCheck, MonitorSmartphone } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { friendlyAuthError } from "@/lib/auth-helpers";
-import { absoluteUrl } from "@/lib/email-link";
 import type { StorageMode } from "@/lib/store";
 import { Loading } from "../ui";
 import { AuthCard, FormMessage } from "./auth-card";
@@ -83,6 +81,7 @@ function VerifyEmailScreen() {
     setBusy(true);
     setMessage(null);
     try {
+      const [{ sendEmailVerification }, { absoluteUrl }] = await Promise.all([import("firebase/auth"), import("@/lib/email-link")]);
       await sendEmailVerification(user, { url: absoluteUrl("/app") });
       setMessage({ tone: "ok", text: `Verification email sent to ${user.email}.` });
       setCooldown(RESEND_COOLDOWN_S);

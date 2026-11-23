@@ -3,7 +3,7 @@
 // main account's cash, holdings or ledger.
 import rawData from "../data/time-machine.json";
 import { maxDrawdownPct, type BenchmarkPoint } from "./benchmark";
-import { formatCurrency, formatNumber } from "./format";
+import { formatCurrency, formatNumber, formatPercent } from "./format";
 import { round2 } from "./portfolio";
 import { commit, newId, nowIso } from "./storage";
 import type { AppState, ReplayResult, ReplaySession, ReplayTrade } from "./types";
@@ -284,7 +284,7 @@ export function reportCard(session: ReplaySession, scenario: ScenarioData): Repo
   feedback.push({
     tone: beat ? "good" : "info",
     title: beat ? "You beat the S&P 500" : "The index won this one",
-    body: `You returned ${returnPct.toFixed(1)}% vs SPY's ${spyReturnPct.toFixed(1)}%. ${beat ? "Ask whether it was process or luck." : "Simply holding the index is a hard benchmark to beat."}`,
+    body: `You returned ${formatPercent(returnPct, false, 1)} vs SPY's ${formatPercent(spyReturnPct, false, 1)}. ${beat ? "Ask whether it was process or luck." : "Simply holding the index is a hard benchmark to beat."}`,
   });
 
   // Panic selling into the crash vs. buying the dip.
@@ -308,12 +308,12 @@ export function reportCard(session: ReplaySession, scenario: ScenarioData): Repo
   const peakWeight = Math.max(0, ...curve.map((c) => c.maxWeightPct));
   if (peakWeight > 40) {
     score -= peakWeight > 70 ? 25 : 15;
-    feedback.push({ tone: "watch", title: "Concentrated bets", body: `At one point a single stock was ${peakWeight.toFixed(0)}% of your account. Sizing positions at ~25% or less limits the damage when you're wrong.` });
+    feedback.push({ tone: "watch", title: "Concentrated bets", body: `At one point a single stock was ${formatPercent(peakWeight, false, 0)} of your account. Sizing positions at ~25% or less limits the damage when you're wrong.` });
   } else if (peakWeight > 25) {
     score -= 5;
-    feedback.push({ tone: "info", title: "Sizing a bit heavy", body: `Your largest position peaked at ${peakWeight.toFixed(0)}% of the account, above the ~25% guideline.` });
+    feedback.push({ tone: "info", title: "Sizing a bit heavy", body: `Your largest position peaked at ${formatPercent(peakWeight, false, 0)} of the account, above the ~25% guideline.` });
   } else if (session.trades.length) {
-    feedback.push({ tone: "good", title: "Sensible sizing", body: `Your largest position peaked at ${peakWeight.toFixed(0)}% of the account.` });
+    feedback.push({ tone: "good", title: "Sensible sizing", body: `Your largest position peaked at ${formatPercent(peakWeight, false, 0)} of the account.` });
   }
 
   // Cash drag.
@@ -335,7 +335,7 @@ export function reportCard(session: ReplaySession, scenario: ScenarioData): Repo
   if (symbols.size >= 3) feedback.push({ tone: "good", title: "Diversified", body: `You spread money across ${symbols.size} tickers.` });
   else if (symbols.size > 0) score -= 10;
 
-  if (maxDd < spyDd - 1) feedback.push({ tone: "good", title: "Smaller drawdown than the market", body: `Your worst drop was ${maxDd.toFixed(1)}% vs SPY's ${spyDd.toFixed(1)}%.` });
+  if (maxDd < spyDd - 1) feedback.push({ tone: "good", title: "Smaller drawdown than the market", body: `Your worst drop was ${formatPercent(maxDd, false, 1)} vs SPY's ${formatPercent(spyDd, false, 1)}.` });
 
   return {
     returnPct,

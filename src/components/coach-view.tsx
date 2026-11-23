@@ -2,10 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Bot, Cpu, MessageCircle, Send, Sparkles } from "lucide-react";
+import { Bot, Cpu, History, MessageCircle, Send, Sparkles, Trash2 } from "lucide-react";
 import { aiCoachConfigured, askAiCoach, CoachFallback } from "@/lib/ai-coach";
 import { track } from "@/lib/analytics";
 import { COACH_DISCLAIMER, ruleBasedAnswer, SUGGESTED_QUESTIONS, type CoachReply } from "@/lib/coach";
+import {
+  browserHistoryStorage,
+  clearCoachHistory,
+  loadCoachHistory,
+  nextMessageId,
+  saveCoachHistory,
+  type StoredMessage,
+} from "@/lib/coach-history";
 import { buildCoachContext } from "@/lib/coach-context";
 import { useApp } from "@/lib/store";
 import { Loading, Panel, PageHeader } from "./ui";
@@ -31,19 +39,48 @@ const WELCOME: Message = {
   text: "Hi, I'm Sentia. Ask me about your paper portfolio — concentration, cash, winners and losers, theses, biases or your Discipline Score.",
 };
 
+function restore(stored: StoredMessage[]): Message[] {
+  // Stored replies were validated on load (text caps, in-app links only).
+  return [WELCOME, ...stored.map((m) => ({ ...m, reply: m.reply as CoachReply | undefined }))];
+}
+
 export function CoachView() {
-  const { ready, state, summary, quotes } = useApp();
-  const [messages, setMessages] = useState<Message[]>([WELCOME]);
+  const { ready, state, summary, storageScope } = useApp();
+  if (!ready || !state || !summary) return <Loading />;
+  // Keyed by scope: switching accounts (or guest <-> signed in) loads that account's own history.
+  return <CoachChat key={storageScope} scope={storageScope} />;
+}
+
+function CoachChat({ scope }: { scope: string }) {
+  const { state, summary, quotes } = useApp();
+  // Rendered only on the client after the store is ready, so reading localStorage here can't cause a hydration mismatch.
+  const [initial] = useState(() => loadCoachHistory(browserHistoryStorage(), scope));
+  const [messages, setMessages] = useState<Message[]>(() => restore(initial));
+  const [restoredCount, setRestoredCount] = useState(initial.length);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
-  const seq = useRef(1);
+  const seq = useRef(nextMessageId(initial));
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  if (!ready || !state || !summary) return <Loading />;
+  // Persist after every change. Answers still streaming are skipped and saved once they finish.
+  useEffect(() => {
+    saveCoachHistory(browserHistoryStorage(), scope, messages);
+  }, [messages, scope]);
+
+  if (!state || !summary) return <Loading />;
+
+  const clearChat = () => {
+    if (busy) return;
+    if (typeof window !== "undefined" && !window.confirm("Clear your conversation with Sentia on this device?")) return;
+    clearCoachHistory(browserHistoryStorage(), scope);
+    seq.current = 1;
+    setRestoredCount(0);
+    setMessages([WELCOME]);
+  };
 
   const builtIn = (q: string, note?: string): Message => {
     const reply = ruleBasedAnswer(q, { state, summary });
@@ -98,10 +135,22 @@ export function CoachView() {
           <strong className="row gap-sm">
             <MessageCircle size={18} /> Coach
           </strong>
+          <div className="row gap-sm wrap">
           <span className="pill pill-compact" title={AI_ENABLED ? "Typed questions: AI coach. Chips and fallback: built-in coach." : "The AI coach isn't set up on this build."}>
             <Sparkles size={13} /> {AI_ENABLED ? "AI coach + built-in" : "Built-in coach · offline"}
           </span>
+          {messages.length > 1 ? (
+            <button type="button" className="btn btn-sm" onClick={clearChat} disabled={busy} aria-label="Clear chat history">
+              <Trash2 size={14} /> Clear chat
+            </button>
+          ) : null}
+          </div>
         </div>
+        {restoredCount > 0 ? (
+          <p className="small dim row gap-sm" role="status">
+            <History size={13} /> Picked up where you left off. Your chat is saved on this device only.
+          </p>
+        ) : null}
         <div className="chat-log" ref={logRef} aria-live="polite">
           {messages.map((m) => (
             <div key={m.id} className={`bubble ${m.role === "user" ? "bubble-user" : "bubble-coach"}`} aria-busy={m.streaming || undefined}>

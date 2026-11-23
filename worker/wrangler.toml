@@ -18,6 +18,9 @@ COACH_DAILY_LIMIT_PER_IP = "30"
 COACH_DAILY_LIMIT_TOTAL = "500"
 # Optional: restrict /quote to these tickers (comma-separated). Empty = any well-formed US ticker.
 SYMBOL_ALLOWLIST = ""
+# Optional background price alerts (Web Push): a contact for push services, e.g. "mailto:you@example.com".
+# Also needs the VAPID_PRIVATE_KEY / VAPID_PUBLIC_KEY secrets and the [triggers] block below. See README.md.
+# VAPID_SUBJECT = "mailto:you@example.com"
 
 # Storage for feedback, rate-limit counters and daily usage counts.
 # Create it once with:  npx wrangler kv namespace create SENTIA_KV
@@ -25,3 +28,8 @@ SYMBOL_ALLOWLIST = ""
 [[kv_namespaces]]
 binding = "SENTIA_KV"
 id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+# Optional background price alerts: un-comment to check stored alerts every 15 minutes.
+# Does nothing until the VAPID keys are set (see README.md → "Background price alerts").
+# [triggers]
+# crons = ["*/15 * * * *"]

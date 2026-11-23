@@ -11,6 +11,7 @@ import { useApp } from "@/lib/store";
 import { isValidSymbol, normalizeSymbol } from "@/lib/validation";
 import { StressTestForm, StressTestSummary } from "./stress-test-form";
 import type { Thesis } from "@/lib/types";
+import { SymbolSearch } from "./symbol-search";
 import { EmptyState, Loading, Panel, PageHeader, Sparkline } from "./ui";
 
 export function ThesisView() {
@@ -181,7 +182,7 @@ export function ThesisView() {
           <div className="grid grid-2">
             <div className="field">
               <label htmlFor="thesis-symbol">Symbol</label>
-              <input id="thesis-symbol" className="input" value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} maxLength={12} placeholder="AAPL" />
+              <SymbolSearch id="thesis-symbol" value={symbol} onChange={setSymbol} placeholder="AAPL or Apple" />
             </div>
             <div className="field">
               <label htmlFor="thesis-conviction">Conviction: {conviction}/5</label>

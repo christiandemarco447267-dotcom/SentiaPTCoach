@@ -22,9 +22,9 @@ function marketLabel(status: string): string {
     case "loading":
       return "Loading market…";
     case "open":
-      return "Live · market open";
+      return "Real price · play money · market open";
     case "closed":
-      return "Live · market closed";
+      return "Real price · play money · market closed";
     case "demo":
       return "Demo prices · auto-updating";
     case "error":
@@ -121,7 +121,7 @@ export function DashboardHome() {
           href="/app/markets"
           icon={<LineChart size={18} />}
           title="Markets"
-          body="Live prices for your universe and holdings."
+          body="Prices for your universe and holdings."
         />
         <QuickLink
           href="/app/allocate"

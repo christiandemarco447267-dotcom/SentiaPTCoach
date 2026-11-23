@@ -6,6 +6,7 @@ import { formatCurrency, formatNumber, formatPercent, formatSignedCurrency } fro
 import { realizedPnl } from "@/lib/portfolio";
 import { useApp } from "@/lib/store";
 import { BenchmarkPanel } from "./benchmark-chart";
+import { CsvExport } from "./settings-extras";
 import { EmptyState, Loading, Panel, PageHeader, Sparkline, Stat } from "./ui";
 
 export function PortfolioView() {
@@ -20,9 +21,12 @@ export function PortfolioView() {
         title="Portfolio"
         subtitle="Your simulated positions, valued with the latest quotes."
         action={
-          <Link href="/app/trade" className="btn btn-primary">
-            <ArrowLeftRight size={16} /> Trade
-          </Link>
+          <span className="row wrap gap-sm">
+            <CsvExport compact />
+            <Link href="/app/trade" className="btn btn-primary">
+              <ArrowLeftRight size={16} /> Trade
+            </Link>
+          </span>
         }
       />
 

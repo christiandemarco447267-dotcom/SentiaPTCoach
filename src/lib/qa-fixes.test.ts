@@ -27,7 +27,7 @@ test("site URL is derived from the GitHub repo + Pages base path, not hardcoded"
   // Explicit URL (custom domain / configure-pages base_url) wins and is normalized.
   assert.equal(resolveSiteUrl({ NEXT_PUBLIC_SITE_URL: "https://sentia.example.com//", PAGES_BASE_PATH: "/Cursor-" }), "https://sentia.example.com/");
   // Nothing set: the live Pages deployment.
-  assert.equal(resolveSiteUrl({}), "https://christiandemarco447267-dotcom.github.io/Cursor-/");
+  assert.equal(resolveSiteUrl({}), "https://christiandemarco447267-dotcom.github.io/SentiaPTCoach/");
   assert.equal(normalizeBasePath("Cursor-/"), "/Cursor-");
   assert.equal(normalizeBasePath(""), "");
 });

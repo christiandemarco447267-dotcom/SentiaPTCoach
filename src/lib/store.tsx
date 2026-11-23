@@ -19,6 +19,10 @@ import * as alertOps from "./alerts";
 import * as orderOps from "./orders";
 import * as replayOps from "./time-machine";
 import * as stressOps from "./stress-test";
+import * as challengeOps from "./challenges";
+import { upsertReport } from "./report-card";
+import { showSystemNotification } from "./notify";
+import { assetPath } from "./asset";
 import { celebrate } from "./celebrate";
 import { formatCurrency, formatNumber } from "./format";
 import { processMarketTick, type TickResult } from "./market-tick";
@@ -35,6 +39,8 @@ import {
   type Quote,
   type ReplayResult,
   type Settings,
+  type TradePlan,
+  type WeeklyReport,
 } from "./types";
 import { friendlyAuthError } from "./auth-helpers";
 import { AUTOSAVE_DEBOUNCE_MS, createDebouncedSaver, isRemoteNewer, type DebouncedSaver } from "./cloud-sync";
@@ -95,6 +101,8 @@ function getSyncSnapshot(): SyncState {
 
 export type ToastTone = "gain" | "loss" | "info";
 export type Toast = { id: number; title: string; body: string; tone: ToastTone };
+/** Also show this toast as a system (phone) notification when the user turned that on. */
+type ToastNotify = { tag: string; url?: string };
 
 let toasts: Toast[] = [];
 let toastSeq = 0;
@@ -115,19 +123,16 @@ export function dismissToast(id: number) {
   emit();
 }
 
-function pushToast(toast: Omit<Toast, "id">) {
+function pushToast(toast: Omit<Toast, "id">, notify?: ToastNotify) {
   toastSeq += 1;
   const id = toastSeq;
   toasts = [...toasts, { ...toast, id }].slice(-MAX_TOASTS);
   emit();
   setTimeout(() => dismissToast(id), TOAST_TTL_MS);
-  // Mirror to a system notification when the user granted permission (best-effort).
-  try {
-    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-      new Notification(toast.title, { body: toast.body, tag: `sentia-${id}` });
-    }
-  } catch {
-    // Some mobile browsers only allow notifications from a service worker; the in-app toast still shows.
+  // Price alerts and order fills are mirrored to a system notification (via the
+  // service worker) when the user switched that on in Settings and granted permission.
+  if (notify && current?.settings.alertNotifications) {
+    void showSystemNotification({ title: toast.title, body: toast.body, tag: notify.tag, url: notify.url });
   }
 }
 
@@ -160,27 +165,42 @@ function announceTick(result: TickResult) {
   for (const fill of result.fills) {
     const { order } = fill;
     const what = `${orderOps.orderLabel(order)} · ${formatNumber(order.shares)} ${order.symbol}`;
+    const notify = { tag: `order-${order.id}`, url: assetPath("/app/trade/") };
     if (fill.kind === "filled") {
-      pushToast({ title: "Order filled", body: `${what} filled at ${formatCurrency(fill.price)}.`, tone: "gain" });
+      pushToast({ title: "Order filled", body: `${what} filled at ${formatCurrency(fill.price)}.`, tone: "gain" }, notify);
     } else {
-      pushToast({ title: "Order rejected", body: `${what}: ${fill.reason}`, tone: "loss" });
+      pushToast({ title: "Order rejected", body: `${what}: ${fill.reason}`, tone: "loss" }, notify);
     }
   }
   for (const { alert, price } of result.alerts) {
-    pushToast({ title: "Price alert", body: `${alertText(alert)} (now ${formatCurrency(price)}).`, tone: "info" });
+    pushToast(
+      { title: "Price alert", body: `${alertText(alert)} (now ${formatCurrency(price)}).`, tone: "info" },
+      { tag: `alert-${alert.id}`, url: assetPath(`/app/trade/?symbol=${encodeURIComponent(alert.symbol)}`) },
+    );
   }
+}
+
+/** Toast + confetti for a newly recorded badge. */
+export function announceBadge(id: string) {
+  const def = challengeOps.challengeForBadge(id);
+  if (!def) return;
+  celebrateNow(`Badge earned: ${def.badge}`, `${def.title}. See it on the Challenges page.`);
 }
 
 /** Run the fill engine, alerts and snapshotting against the newest quotes. */
 function applyMarketTick(quotes: Quote[]) {
   if (!current || quotes.length === 0) return;
-  const result = processMarketTick(current, quotes, Date.now());
-  if (!result.changed) return;
-  const parsed = AppStateSchema.safeParse(result.state);
+  const now = Date.now();
+  const result = processMarketTick(current, quotes, now);
+  // "Hold through a dip" challenge tracking rides on the same price update.
+  const dips = challengeOps.trackDips(result.changed ? result.state : current, quotes, now);
+  if (!result.changed && dips.state === current) return;
+  const parsed = AppStateSchema.safeParse(dips.state);
   if (!parsed.success) return; // never persist an invalid state; try again next tick
   const prev = current;
   setCurrent(parsed.data);
-  announceTick(result);
+  if (result.changed) announceTick(result);
+  if (dips.earned) announceBadge("hold-dip");
   celebrateThesisWins(prev, parsed.data);
 }
 
@@ -452,6 +472,8 @@ export type AppApi = {
   /** In-app notifications for order fills and price alerts. */
   toasts: Toast[];
   dismissToast: (id: number) => void;
+  /** Which data scope is active: "guest" (this device) or "cloud:<uid>". Used to keep per-account local data, such as coach chat history, apart. */
+  storageScope: string;
   actions: {
     buy: (input: TradeInput) => void;
     sell: (input: TradeInput) => void;
@@ -484,10 +506,17 @@ export type AppApi = {
     endReplay: () => void;
     rememberLeague: (code: string) => void;
     forgetLeague: (code: string) => void;
+    // v5
+    reviewTrade: (txId: string, input: { rating: number; lesson?: string }) => void;
+    setGoal: (goal: AppState["profile"]["goal"]) => void;
+    awardBadges: (ids: string[]) => void;
+    saveReport: (report: WeeklyReport) => void;
+    /** Swap a report's tip (e.g. for the AI coach's), only if the report still exists. */
+    setReportTip: (week: string, tip: string, source: WeeklyReport["tipSource"]) => void;
   };
 };
 
-export type TradeInput = { symbol: string; shares: number; price: number; mood?: Mood; dayChange?: number };
+export type TradeInput = { symbol: string; shares: number; price: number; mood?: Mood; dayChange?: number; plan?: TradePlan };
 
 const AppContext = createContext<AppApi | null>(null);
 
@@ -638,7 +667,7 @@ export function AppProvider({ mode: storageMode, children }: { mode: StorageMode
 
   const actions = useMemo<AppApi["actions"]>(
     () => ({
-      buy: ({ mood, dayChange, ...input }) => mutate((s) => mutations.buy(s, input, "", { mood, dayChange })),
+      buy: ({ mood, dayChange, plan, ...input }) => mutate((s) => mutations.buy(s, input, "", { mood, dayChange, plan })),
       sell: ({ mood, dayChange, ...input }) => mutate((s) => mutations.sell(s, input, "", { mood, dayChange })),
       placeOrder: (input) => mutate((s) => orderOps.placeOrder(s, input)),
       cancelOrder: (id) => mutate((s) => orderOps.cancelOrder(s, id)),
@@ -668,6 +697,16 @@ export function AppProvider({ mode: storageMode, children }: { mode: StorageMode
       endReplay: () => mutate((s) => replayOps.endReplay(s)),
       rememberLeague: (code) => mutate((s) => mutations.rememberLeague(s, code)),
       forgetLeague: (code) => mutate((s) => mutations.forgetLeague(s, code)),
+      reviewTrade: (txId, input) => mutate((s) => mutations.reviewTrade(s, txId, input)),
+      setGoal: (goal) => mutate((s) => mutations.setPracticeGoal(s, goal)),
+      awardBadges: (ids) => mutate((s) => challengeOps.awardBadges(s, ids)),
+      saveReport: (report) => mutate((s) => mutations.commit({ ...s, reports: upsertReport(s.reports, report) })),
+      setReportTip: (week, tip, source) =>
+        mutate((s) =>
+          s.reports.some((r) => r.week === week)
+            ? mutations.commit({ ...s, reports: s.reports.map((r) => (r.week === week ? { ...r, tip: tip.trim().slice(0, 900), tipSource: source } : r)) })
+            : s,
+        ),
     }),
     [],
   );
@@ -688,6 +727,7 @@ export function AppProvider({ mode: storageMode, children }: { mode: StorageMode
     refreshMarket: () => void refreshMarket(),
     toasts: toastList,
     dismissToast,
+    storageScope: modeKey,
     actions,
   };
 

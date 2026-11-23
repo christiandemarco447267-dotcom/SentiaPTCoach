@@ -16,6 +16,7 @@ import { AccountSecurity } from "./auth/account-security";
 import { AboutPanel, DeleteDataPanel } from "./delete-data";
 import { REAUTH_NOTICE_KEY } from "./auth/email-link-complete";
 import { useReauth } from "./auth/reauth";
+import { CsvExport, HabitSettings, NotificationSettings, ThemeSettings } from "./settings-extras";
 
 /** One-shot notice after returning from a re-auth email link. */
 function takeReauthNotice(): boolean {
@@ -151,6 +152,9 @@ export function SettingsView() {
         </span>
       </Panel>
 
+      <ThemeSettings />
+      <HabitSettings />
+      <NotificationSettings />
       <CelebrationSettings />
       <AnalyticsSettings />
 
@@ -183,10 +187,10 @@ export function SettingsView() {
           <span className="row gap-sm">
             <Compass size={18} /> <strong>Getting started</strong>
           </span>
-          <span className="small muted">New here? Replay the guided walkthrough of Sentia.</span>
+          <span className="small muted">Replay the 60-second guided session: pick a goal, make a trade, meet the coach.</span>
         </div>
         <button className="btn" onClick={openTour}>
-          Replay tutorial
+          Replay guided session
         </button>
       </Panel>
 
@@ -255,6 +259,8 @@ export function SettingsView() {
           </button>
         </Panel>
       </div>
+
+      <CsvExport />
 
       <DeleteDataPanel />
       <AboutPanel />

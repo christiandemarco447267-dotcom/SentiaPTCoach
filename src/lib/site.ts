@@ -4,9 +4,11 @@
 //      repository (GITHUB_REPOSITORY_OWNER, set on Actions runners) and the Pages
 //      base path the workflow builds with (PAGES_BASE_PATH / NEXT_PUBLIC_BASE_PATH);
 //   3. otherwise the default below.
-// So a repo rename (e.g. Sentia- → Cursor-) needs no code change.
+// So a repo rename (e.g. Cursor- → SentiaPTCoach) needs no code change. For a custom domain
+// (see CUSTOM_DOMAIN.md) the deploy workflow sets NEXT_PUBLIC_SITE_URL=https://<domain> and an
+// empty base path.
 const DEFAULT_OWNER = "christiandemarco447267-dotcom";
-const DEFAULT_BASE_PATH = "/Cursor-";
+const DEFAULT_BASE_PATH = "/SentiaPTCoach";
 
 /** Normalize a base path to "" or "/segment" (leading slash, no trailing slash). */
 export function normalizeBasePath(value: string | undefined): string {

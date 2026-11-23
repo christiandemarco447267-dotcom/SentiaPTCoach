@@ -10,8 +10,12 @@
  *   usage counts), anything under /api/, non-GET requests, and RSC/data requests with a query.
  *   Those always go straight to the network.
  * - Not registered in the native (Capacitor) app, which already ships every file on the device.
+ * - Notifications: price alerts / order fills shown by the page via registration.showNotification
+ *   (works on Android and iOS home-screen apps); tapping one focuses or opens Sentia.
+ * - Optional Web Push ("push" event) for background price alerts, only used when the Sentia API
+ *   is deployed with VAPID keys and the site is built with NEXT_PUBLIC_VAPID_PUBLIC_KEY.
  */
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL_CACHE = `sentia-shell-${VERSION}`;
 const ASSET_CACHE = `sentia-assets-${VERSION}`;
 const SCOPE = new URL(self.registration ? self.registration.scope : "./", self.location.href);
@@ -48,7 +52,38 @@ function classifyRequest(req, scope) {
   return "bypass";
 }
 
-if (typeof module !== "undefined") module.exports = { classifyRequest };
+/**
+ * Build the notification for a Web Push message. Pure and exported for unit tests.
+ * Accepts {title, body, tag, url}; anything else falls back to a generic Sentia alert.
+ * @param {unknown} data
+ * @param {string} scope
+ */
+function pushNotice(data, scope) {
+  const d = data && typeof data === "object" ? data : {};
+  const str = (v, max) => (typeof v === "string" ? v.slice(0, max) : "");
+  let url = new URL("app/", scope).href;
+  try {
+    const candidate = str(d.url, 300);
+    if (candidate) {
+      const u = new URL(candidate, scope);
+      if (u.origin === new URL(scope).origin) url = u.href; // never open another site
+    }
+  } catch {
+    // keep default
+  }
+  return {
+    title: str(d.title, 80) || "Sentia price alert",
+    options: {
+      body: str(d.body, 200) || "One of your price alerts triggered.",
+      tag: str(d.tag, 80) || "sentia-push",
+      icon: new URL("icons/icon-192.png", scope).href,
+      badge: new URL("icons/icon-192.png", scope).href,
+      data: { url },
+    },
+  };
+}
+
+if (typeof module !== "undefined") module.exports = { classifyRequest, pushNotice };
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -109,4 +144,31 @@ self.addEventListener("fetch", (event) => {
     );
   }
   // "bypass": let the browser handle it (no respondWith) — never cached.
+});
+
+self.addEventListener("push", (event) => {
+  let data = null;
+  try {
+    data = event.data ? event.data.json() : null;
+  } catch {
+    data = null;
+  }
+  const n = pushNotice(data, SCOPE.href);
+  event.waitUntil(self.registration.showNotification(n.title, n.options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || new URL("app/", SCOPE).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
+        if (client.url.startsWith(SCOPE.href) && "focus" in client) {
+          if ("navigate" in client) client.navigate(target).catch(() => undefined);
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow ? self.clients.openWindow(target) : undefined;
+    }),
+  );
 });

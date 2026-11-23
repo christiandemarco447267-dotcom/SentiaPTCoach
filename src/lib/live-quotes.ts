@@ -97,6 +97,9 @@ export function formatAsOfET(iso: string | undefined): string {
   return `${day}, ${time} ET`;
 }
 
+/** Short label for the whole price feed: real prices traded with play money, or simulated demo prices. */
+export const REAL_PRICE_LABEL = "Real price · play money";
+
 export type QuoteBadgeKind = "live" | "delayed" | "demo";
 
 export function quoteBadge(q: Pick<Quote, "source" | "asOf" | "provider"> | undefined): { kind: QuoteBadgeKind; label: string; detail: string; when: string } {
@@ -106,7 +109,17 @@ export function quoteBadge(q: Pick<Quote, "source" | "asOf" | "provider"> | unde
   const when = formatAsOfET(q.asOf);
   const via = q.provider ? ` via ${q.provider === "finnhub" ? "Finnhub" : q.provider === "yahoo" ? "Yahoo Finance" : q.provider}` : "";
   if (q.source === "delayed") {
-    return { kind: "delayed", label: "Delayed", detail: `Real price${via} that may lag the market${when ? `, as of ${when}` : ""}.`, when };
+    return {
+      kind: "delayed",
+      label: "Real price · delayed",
+      detail: `Real market price${via}, may lag the market; simulated trades with play money${when ? `. As of ${when}` : ""}.`,
+      when,
+    };
   }
-  return { kind: "live", label: "Live", detail: `Real market price${via}${when ? `, as of ${when}` : ""}.`, when };
+  return {
+    kind: "live",
+    label: "Real price",
+    detail: `Real market price${via}, simulated trades with play money${when ? `. As of ${when}` : ""}.`,
+    when,
+  };
 }

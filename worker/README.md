@@ -90,8 +90,51 @@ Then follow **PILOT_SETUP.md** (in the main folder) to connect the website to it
 | `COACH_DAILY_LIMIT_PER_IP` | `30` | AI questions per visitor per day. |
 | `COACH_DAILY_LIMIT_TOTAL` | `500` | AI questions per day for the whole site (your cost ceiling). |
 | `SYMBOL_ALLOWLIST` | *(empty)* | Optional list of tickers `/quote` will accept. Empty = any normal US ticker. |
+| `VAPID_SUBJECT` | *(unset)* | Only for background price alerts: `mailto:you@example.com`. |
+
+Using a **custom domain** for the website? Add it to `ALLOWED_ORIGINS`, e.g.
+`ALLOWED_ORIGINS = "https://christiandemarco447267-dotcom.github.io,https://sentia.example.com"` (see CUSTOM_DOMAIN.md).
 
 Run `npx wrangler deploy` again after editing.
+
+## Ticker search (`/search`)
+`GET /search?q=apple` returns up to 10 US stocks/ETFs (`{ "results": [{ "symbol": "AAPL", "name": "APPLE INC" }] }`)
+for the app's ticker autocomplete. It uses Finnhub's symbol search, so it needs `FINNHUB_API_KEY`; without
+it the endpoint answers 503 and the app quietly keeps using its built-in ticker list. Results are cached
+for 10 minutes and count toward the same 50/min Finnhub budget as quotes. Nothing to configure.
+
+## Background price alerts (optional, off by default)
+Out of the box, Sentia shows phone notifications for price alerts **only while the app is open or was
+recently open** (Settings → Phone notifications). To also notify people when the app is fully closed,
+the Worker can send **Web Push** messages. It stays off until you do all of the steps below, and the
+website only shows the "Background alerts (beta)" switch once both halves are configured.
+
+1. **Make a VAPID key pair** (identifies your server to Apple/Google/Mozilla push services):
+   ```bash
+   npx web-push generate-vapid-keys --json
+   ```
+   (Any VAPID generator works; you need the base64url *public* key, 87 characters, and *private* key, 43.)
+2. **Add them to the Worker:**
+   ```bash
+   npx wrangler secret put VAPID_PRIVATE_KEY     # paste the private key
+   npx wrangler secret put VAPID_PUBLIC_KEY      # paste the public key
+   ```
+   and in `wrangler.toml` → `[vars]` set `VAPID_SUBJECT = "mailto:you@example.com"` (a contact address
+   push services can use if something goes wrong).
+3. **Turn on the cron trigger:** in `wrangler.toml`, un-comment the `[triggers]` block
+   (`crons = ["*/15 * * * *"]` checks every 15 minutes). The KV namespace from step 3 above is required.
+4. `npx wrangler deploy`, then check `/health` shows `"push": true`.
+5. **Tell the website the public key:** GitHub → Settings → Secrets and variables → Actions →
+   **Variables** → New repository variable `NEXT_PUBLIC_VAPID_PUBLIC_KEY` = the *public* key. Re-run the
+   **Deploy to GitHub Pages** workflow.
+
+How it works: when someone turns on "Background alerts (beta)", their browser creates a push
+subscription and sends it to `POST /push/subscribe` with their **active** alerts only (id, ticker,
+above/below, price). Each 15-minute cron run prices those tickers (same Finnhub → Yahoo path as
+`/quote`), sends an encrypted push (RFC 8291 `aes128gcm`, signed with VAPID) for every alert that
+crossed, and deletes it (alerts are one-shot, like in the app). Subscriptions that the push service
+reports gone (404/410) are deleted; idle records expire after 60 days. iPhone users must add Sentia to
+the Home Screen (iOS 16.4+) for any web notification to work.
 
 ## Reading feedback and stats
 
@@ -108,7 +151,9 @@ SENTIA_KV** (feedback keys start with `fb:`, daily totals with `ev:`).
 ## How it protects you
 - **Keys never reach the browser.** They are Worker secrets; the website only knows the API URL.
 - **CORS** only lets your Pages site (and localhost) call the API from a browser.
-- **Rate limits:** quotes 60/min per visitor; feedback 3/min and 10/hour per visitor; AI coach 6/min
+- **Push is opt-in and narrow:** only push services' own hosts (Google, Mozilla, Apple, Microsoft) are ever
+  contacted for `/push`, and only active alerts are stored.
+- **Rate limits:** ticker search 40/min and push sign-ups 20/min per visitor; quotes 60/min per visitor; feedback 3/min and 10/hour per visitor; AI coach 6/min
   plus the daily caps above. Finnhub calls are capped at 50/min with a 1-minute back-off after a 429.
 - **Spam guards on feedback:** hidden honeypot field, 2,000-character cap, rate limits.
 - **No raw IPs stored.** Rate-limit counters use a one-way hash that changes every day.

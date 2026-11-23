@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, Clock3, Lightbulb, X } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Clock3, Lightbulb, NotebookPen, X } from "lucide-react";
 import { previewTradeBiases } from "@/lib/biases";
 import { MOOD_INFO } from "@/lib/moods";
 import { MOODS, type Mood } from "@/lib/types";
@@ -10,14 +10,17 @@ import { ShareTradeButton } from "./share-card";
 import { formatCurrency, formatNumber, formatRelativeDay } from "@/lib/format";
 import { track } from "@/lib/analytics";
 import { formatAsOfET } from "@/lib/live-quotes";
-import { DEMO_UNIVERSE, demoQuote, nameForSymbol, priceSourceOf } from "@/lib/market";
+import { demoQuote, nameForSymbol, priceSourceOf } from "@/lib/market";
 import { resolveMarketFill } from "@/lib/market-fill";
 import { orderCondition, orderLabel } from "@/lib/orders";
 import { quoteMap } from "@/lib/portfolio";
 import { useApp } from "@/lib/store";
 import { isValidSymbol, normalizeSymbol, parseAmount } from "@/lib/validation";
-import type { PendingOrder } from "@/lib/types";
+import type { PendingOrder, TradePlan } from "@/lib/types";
 import { EmptyState, Loading, Panel, PageHeader, QuoteBadge, StarButton } from "./ui";
+import { SymbolSearch } from "./symbol-search";
+import { PositionSizer } from "./position-sizer";
+import { PreTradeChecklist, TradeReviewDialog, type ChecklistDraft } from "./trade-journal-dialogs";
 
 type Mode = "buy" | "sell";
 type OrderKind = "market" | "limit" | "stop";
@@ -33,8 +36,8 @@ function orderHelp(mode: Mode, kind: OrderKind, live: boolean): string {
   if (kind === "market") {
     if (live) {
       return mode === "buy"
-        ? "Buys now at the live market price. The price box is optional — set it as a limit and the order won't fill above it."
-        : "Sells now at the live market price. The price box is optional — set it as a limit and the order won't fill below it.";
+        ? "Buys now at the real market price (play money). The price box is optional — set it as a limit and the order won't fill above it."
+        : "Sells now at the real market price (play money). The price box is optional — set it as a limit and the order won't fill below it.";
     }
     return mode === "buy" ? "Buys now at the price you enter (prices are simulated)." : "Sells now at the price you enter (prices are simulated).";
   }
@@ -49,7 +52,7 @@ function orderHelp(mode: Mode, kind: OrderKind, live: boolean): string {
 }
 
 export function TradeView() {
-  const { ready, state, quotes, market, actions } = useApp();
+  const { ready, state, quotes, market, actions, summary } = useApp();
   const searchParams = useSearchParams();
   const initialSymbol = searchParams.get("symbol") ?? "";
 
@@ -61,10 +64,29 @@ export function TradeView() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [mood, setMood] = useState<Mood | undefined>(undefined);
+  // v5: pre-trade checklist (before a market buy) and post-trade review (after a sell).
+  const [checklist, setChecklist] = useState<(ChecklistDraft & { meta: { mood?: Mood; dayChange?: number }; at: string }) | null>(null);
+  const [sizerPlan, setSizerPlan] = useState<{ risk: number; stop: number; symbol: string } | null>(null);
+  const [reviewAfter, setReviewAfter] = useState<{ afterId: string | null; symbol: string } | null>(null);
+  const [reviewId, setReviewId] = useState<string | null>(null);
 
   const prices = useMemo(() => quoteMap(quotes), [quotes]);
 
   if (!ready || !state) return <Loading />;
+
+  // The sell just placed (to review), or a sell picked from Recent activity.
+  const reviewTx = reviewId
+    ? (state.transactions.find((t) => t.id === reviewId) ?? null)
+    : reviewAfter
+      ? (state.transactions
+          .slice(Math.max(0, state.transactions.findIndex((t) => t.id === reviewAfter.afterId) + 1))
+          .reverse()
+          .find((t) => t.type === "sell" && t.symbol === reviewAfter.symbol && !t.review) ?? null)
+      : null;
+  const closeReview = () => {
+    setReviewAfter(null);
+    setReviewId(null);
+  };
 
   const normalized = normalizeSymbol(symbol);
   // On the simulated feed every ticker gets a deterministic demo price. A symbol the
@@ -150,20 +172,52 @@ export function TradeView() {
       setError(fill.error);
       return;
     }
-    const at = fill.basis === "live" ? ` (live price${liveQuote?.asOf ? `, as of ${formatAsOfET(liveQuote.asOf)}` : ""})` : "";
+    const at = fill.basis === "live" ? ` (real market price${liveQuote?.asOf ? `, as of ${formatAsOfET(liveQuote.asOf)}` : ""})` : "";
 
     try {
       const meta = { mood, dayChange: quote?.changePercent };
+      if (mode === "buy" && state.settings.preTradeChecklist) {
+        // Three quick questions first; the buy happens when they're answered (or skipped).
+        const sized = sizerPlan && sizerPlan.symbol === normalized ? sizerPlan : null;
+        setChecklist({
+          symbol: normalized,
+          shares: sharesNum,
+          price: fill.price,
+          suggestedRisk: sized ? Math.min(sized.risk, sharesNum * fill.price) : undefined,
+          suggestedExit: sized ? `Sell if it falls to ${formatCurrency(sized.stop)} (my stop).` : undefined,
+          meta,
+          at,
+        });
+        return;
+      }
       if (mode === "buy") {
         actions.buy({ symbol: normalized, shares: sharesNum, price: fill.price, ...meta });
         setNotice(`Bought ${formatNumber(sharesNum)} ${normalized} at ${formatCurrency(fill.price)}${at}.`);
       } else {
+        const afterId = state.transactions.at(-1)?.id ?? null;
         actions.sell({ symbol: normalized, shares: sharesNum, price: fill.price, ...meta });
         setNotice(`Sold ${formatNumber(sharesNum)} ${normalized} at ${formatCurrency(fill.price)}${at}.`);
+        setReviewAfter({ afterId, symbol: normalized });
       }
       track("trade_placed");
       setShares("");
       setMood(undefined);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Trade could not be completed.");
+    }
+  };
+
+  const completeBuy = (plan: TradePlan | undefined) => {
+    if (!checklist) return;
+    const { symbol: sym, shares: qty, price: px, meta, at } = checklist;
+    setChecklist(null);
+    try {
+      actions.buy({ symbol: sym, shares: qty, price: px, ...meta, plan });
+      setNotice(`Bought ${formatNumber(qty)} ${sym} at ${formatCurrency(px)}${at}.${plan ? " Plan saved with the trade." : ""}`);
+      track("trade_placed");
+      setShares("");
+      setMood(undefined);
+      setSizerPlan(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Trade could not be completed.");
     }
@@ -179,6 +233,7 @@ export function TradeView() {
       <PageHeader title="Trade" subtitle="Simulated buy & sell. Cash moves, cost basis averages, gains realize on sale." />
 
       <div className="grid grid-2">
+        <div className="stack gap-lg" style={{ minWidth: 0 }}>
         <Panel strong className="stack gap-md">
           <div className="row gap-sm" role="group" aria-label="Order side">
             <button
@@ -222,31 +277,20 @@ export function TradeView() {
             <div className="field">
               <label htmlFor="symbol">Symbol</label>
               <div className="row gap-sm">
-              <input
-                id="symbol"
-                className="input"
-                list="symbol-options"
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                placeholder="e.g. AAPL"
-                maxLength={12}
-                autoComplete="off"
-                aria-describedby={normalized ? "symbol-name" : undefined}
-              />
-              {isValidSymbol(normalized) ? <StarButton symbol={normalized} /> : null}
+                <SymbolSearch
+                  id="symbol"
+                  value={symbol}
+                  onChange={setSymbol}
+                  className="grow"
+                  describedBy={normalized ? "symbol-name" : undefined}
+                />
+                {isValidSymbol(normalized) ? <StarButton symbol={normalized} /> : null}
               </div>
-              <datalist id="symbol-options">
-                {DEMO_UNIVERSE.map((entry) => (
-                  <option key={entry.symbol} value={entry.symbol}>
-                    {entry.name}
-                  </option>
-                ))}
-              </datalist>
               {normalized ? (
                 <span id="symbol-name" className="small dim row wrap gap-sm">
                   {nameForSymbol(normalized)}
                   {isValidSymbol(normalized) ? <QuoteBadge quote={quote} showTime /> : null}
-                  {liveFeed && isValidSymbol(normalized) && !liveQuote ? <span className="loss">No live price yet</span> : null}
+                  {liveFeed && isValidSymbol(normalized) && !liveQuote ? <span className="loss">No real price yet</span> : null}
                 </span>
               ) : null}
             </div>
@@ -289,7 +333,7 @@ export function TradeView() {
             {estimated !== null ? (
               <div className="row between">
                 <span className="muted small">
-                  {liveMarket ? "At the live price, est." : kind === "market" ? "Estimated" : `At your ${kind} price, est.`} {mode === "buy" ? "cost" : "proceeds"}
+                  {liveMarket ? "At the real price, est." : kind === "market" ? "Estimated" : `At your ${kind} price, est.`} {mode === "buy" ? "cost" : "proceeds"}
                 </span>
                 <strong>{formatCurrency(estimated)}</strong>
               </div>
@@ -360,6 +404,12 @@ export function TradeView() {
               {notice ? <span className="form-ok">{notice}</span> : null}
             </div>
 
+            {mode === "buy" && kind === "market" ? (
+              <span className="small dim">
+                {state.settings.preTradeChecklist ? "You'll answer 3 quick questions (why, exit plan, risk) before the buy goes through." : "Pre-trade checklist is off (Settings)."}
+              </span>
+            ) : null}
+
             <button type="submit" className="btn btn-primary btn-block">
               {kind === "market"
                 ? mode === "buy"
@@ -369,6 +419,19 @@ export function TradeView() {
             </button>
           </form>
         </Panel>
+        {mode === "buy" ? (
+          <PositionSizer
+            accountValue={summary?.total ?? state.cash}
+            cash={state.cash}
+            entryPrice={execPrice ?? quote?.price}
+            symbol={isValidSymbol(normalized) ? normalized : ""}
+            onUse={({ shares: qty, risk, stop }) => {
+              setShares(String(qty));
+              setSizerPlan({ risk, stop, symbol: normalized });
+            }}
+          />
+        ) : null}
+        </div>
 
         <Panel className="stack gap-md">
           <strong>Recent activity</strong>
@@ -404,6 +467,17 @@ export function TradeView() {
                       {tx.realizedGain !== undefined ? (
                         <span className="row gap-sm">
                           <span className={tx.realizedGain >= 0 ? "gain" : "loss"}>realized {formatCurrency(tx.realizedGain)}</span>
+                          {tx.type === "sell" ? (
+                            tx.review ? (
+                              <span className="pill pill-compact" title={tx.review.lesson || "Reviewed"}>
+                                {"★".repeat(tx.review.rating)}
+                              </span>
+                            ) : (
+                              <button type="button" className="link-btn small" onClick={() => setReviewId(tx.id)}>
+                                <NotebookPen size={12} /> Review
+                              </button>
+                            )
+                          ) : null}
                           {tx.type === "sell" ? <ShareTradeButton txId={tx.id} symbol={tx.symbol} /> : null}
                         </span>
                       ) : tx.mood ? (
@@ -453,6 +527,27 @@ export function TradeView() {
           </>
         ) : null}
       </Panel>
+
+      <PreTradeChecklist
+        draft={checklist}
+        onConfirm={(plan) => completeBuy(plan)}
+        onSkip={() => completeBuy(undefined)}
+        onCancel={() => setChecklist(null)}
+      />
+      <TradeReviewDialog
+        tx={reviewTx}
+        onClose={closeReview}
+        onSave={(rating, lesson) => {
+          if (!reviewTx) return;
+          try {
+            actions.reviewTrade(reviewTx.id, { rating, lesson });
+            setNotice("Review saved to your trade journal.");
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Couldn't save the review.");
+          }
+          closeReview();
+        }}
+      />
     </div>
   );
 }

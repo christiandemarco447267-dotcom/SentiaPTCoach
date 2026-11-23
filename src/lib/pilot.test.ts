@@ -75,14 +75,15 @@ test("parseQuoteResponse keeps valid real quotes, labels delayed ones, and lists
   assert.equal(parseQuoteResponse({ nope: true }, []), null);
 });
 
-test("quote badges say Live / Delayed / Demo with a New York time", () => {
+test("quote badges say Real price / Real price · delayed / Demo with a New York time", () => {
   assert.equal(quoteBadge(undefined).kind, "demo");
   assert.equal(quoteBadge(demo("SPY", 1)).label, "Demo");
   const l = quoteBadge(live("AAPL", 1));
-  assert.equal(l.label, "Live");
+  assert.equal(l.label, "Real price");
   assert.match(l.detail, /Finnhub/);
+  assert.match(l.detail, /^Real market price via Finnhub, simulated trades/);
   assert.match(l.when, /ET$/);
-  assert.equal(quoteBadge(live("AAPL", 1, "delayed")).label, "Delayed");
+  assert.equal(quoteBadge(live("AAPL", 1, "delayed")).label, "Real price · delayed");
   // 19:30 UTC on Oct 30 2026 is 3:30 PM EDT.
   assert.match(formatAsOfET("2026-10-30T19:30:00.000Z"), /3:30\s?PM ET$/);
 });

@@ -13,6 +13,9 @@ export class FakeKV {
     this.writes += 1;
     this.store.set(key, value);
   }
+  async delete(key: string): Promise<void> {
+    this.store.delete(key);
+  }
   async list({ prefix = "", limit = 1000 }: { prefix?: string; limit?: number; cursor?: string }) {
     const keys = [...this.store.keys()].filter((k) => k.startsWith(prefix)).sort().slice(0, limit).map((name) => ({ name }));
     return { keys, list_complete: true, cursor: "" };

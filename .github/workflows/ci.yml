@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - Sentia_PT_Coach
 
 permissions:
   contents: read

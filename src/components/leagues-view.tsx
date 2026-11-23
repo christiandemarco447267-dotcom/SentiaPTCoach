@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Copy, Lock, LogOut, Medal, Users } from "lucide-react";
+import { Copy, Lock, LogOut, Medal, Share2, Users } from "lucide-react";
+import { assetPath } from "@/lib/asset";
+import { friendlyAuthError } from "@/lib/auth-helpers";
 import { useAuth } from "@/lib/auth";
 import { trailingReturnPct } from "@/lib/benchmark";
 import { formatPercent } from "@/lib/format";
@@ -12,7 +15,24 @@ import { useApp } from "@/lib/store";
 import { useDiscipline } from "./discipline-card";
 import { EmptyState, Loading, Panel, PageHeader } from "./ui";
 
-function LockedState({ configured }: { configured: boolean }) {
+/** "5 min ago" for leaderboard freshness. */
+export function updatedAgo(ms: number | undefined, now: number): string {
+  if (!ms) return "";
+  const mins = Math.max(0, Math.round((now - ms) / 60_000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} h ago`;
+  return `${Math.round(hours / 24)} d ago`;
+}
+
+/** Link that opens Leagues with the join code filled in. */
+function inviteLink(code: string): string {
+  if (typeof window === "undefined") return "";
+  return `${window.location.origin}${assetPath("/app/leagues/")}?join=${code}`;
+}
+
+function LockedState({ configured, joinCode }: { configured: boolean; joinCode: string | null }) {
   return (
     <Panel strong className="stack gap-md locked-panel">
       <span className="lock-icon">
@@ -25,13 +45,21 @@ function LockedState({ configured }: { configured: boolean }) {
         trades or balances.
       </span>
       {configured ? (
-        <div className="row wrap gap-sm">
-          <Link href="/signup" className="btn btn-primary">
-            Create an account
-          </Link>
-          <Link href="/signin" className="btn">
-            Sign in
-          </Link>
+        <div className="stack gap-sm">
+          {joinCode ? (
+            <span className="pill pill-primary" style={{ width: "fit-content" }}>
+              You were invited to league {joinCode}. Sign in to join.
+            </span>
+          ) : null}
+          <div className="row wrap gap-sm">
+            <Link href="/signup" className="btn btn-primary">
+              Create an account
+            </Link>
+            <Link href={`/signin?next=${encodeURIComponent(joinCode ? `/app/leagues?join=${joinCode}` : "/app/leagues")}`} className="btn">
+              Sign in
+            </Link>
+          </div>
+          <span className="small dim">Accounts need a verified email. Your paper portfolio comes with you when you sign up.</span>
         </div>
       ) : (
         <span className="small dim">
@@ -46,22 +74,24 @@ function LockedState({ configured }: { configured: boolean }) {
 export function LeaguesView() {
   const { configured, user } = useAuth();
   const { ready, state, sync } = useApp();
+  const params = useSearchParams();
+  const joinCode = normalizeLeagueCode(params.get("join") ?? "");
   if (!ready || !state) return <Loading />;
   const signedIn = configured && user && sync.mode === "cloud";
   return (
     <div className="stack gap-lg animate-in">
       <PageHeader title="Friend leagues" subtitle="Compete on process, not just profit. Ranked by Discipline Score." />
-      {signedIn ? <Leagues uid={user.uid} /> : <LockedState configured={configured} />}
+      {signedIn ? <Leagues uid={user.uid} joinCode={joinCode} /> : <LockedState configured={configured} joinCode={joinCode} />}
       <p className="disclaimer">Paper-trading results only. Leaderboards are for fun and learning, not investment advice.</p>
     </div>
   );
 }
 
-function Leagues({ uid }: { uid: string }) {
+function Leagues({ uid, joinCode }: { uid: string; joinCode: string | null }) {
   const { state, actions } = useApp();
   const discipline = useDiscipline();
   const [name, setName] = useState("");
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(joinCode && !(state?.leagues ?? []).includes(joinCode) ? joinCode : "");
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const lastPublished = useRef("");
@@ -93,7 +123,7 @@ function Leagues({ uid }: { uid: string }) {
     try {
       setMessage({ tone: "ok", text: await fn() });
     } catch (err) {
-      setMessage({ tone: "error", text: err instanceof Error ? err.message : "Something went wrong." });
+      setMessage({ tone: "error", text: friendlyAuthError(err, err instanceof Error ? err.message : "Something went wrong.") });
     } finally {
       setBusy(false);
     }
@@ -162,6 +192,11 @@ function Leagues({ uid }: { uid: string }) {
       ) : (
         codes.map((c) => <LeagueBoard key={c} code={c} uid={uid} onLeave={() => actions.forgetLeague(c)} />)
       )}
+      {codes.length ? (
+        <span className="small dim">
+          Scores refresh automatically while you have Sentia open. Ranking: Discipline Score first, then 30-day return.
+        </span>
+      ) : null}
     </>
   );
 }
@@ -170,7 +205,24 @@ function LeagueBoard({ code, uid, onLeave }: { code: string; uid: string; onLeav
   const [members, setMembers] = useState<LeagueMember[] | null>(null);
   const [leagueName, setLeagueName] = useState(code);
   const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"" | "code" | "link">("");
+  // eslint-disable-next-line react-hooks/purity -- "updated x min ago" is relative to now
+  const now = Date.now();
+
+  const share = async () => {
+    const url = inviteLink(code);
+    const text = `Join my Sentia paper-trading league “${leagueName}” with code ${code}.`;
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share({ title: "Sentia league invite", text, url });
+        return;
+      }
+      await navigator.clipboard.writeText(`${text} ${url}`);
+      setCopied("link");
+    } catch {
+      // Share sheet dismissed or clipboard blocked: the code stays visible.
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -180,7 +232,13 @@ function LeagueBoard({ code, uid, onLeave }: { code: string; uid: string; onLeav
     const stop = watchMembers(
       code,
       (list) => alive && setMembers(list),
-      () => alive && setError("Couldn't load this league. You may have left it, or it no longer exists."),
+      (e) =>
+        alive &&
+        setError(
+          String((e as { code?: string })?.code ?? "").includes("permission-denied")
+            ? "You're not a member of this league any more (or your email isn't verified yet). Join again with its code."
+            : "Couldn't load this league. Check your connection; it will retry when you come back.",
+        ),
     );
     return () => {
       alive = false;
@@ -202,11 +260,14 @@ function LeagueBoard({ code, uid, onLeave }: { code: string; uid: string; onLeav
             className="btn btn-sm"
             onClick={() => {
               // Clipboard can be denied (permissions / insecure context); the code stays visible on the button.
-              void navigator.clipboard?.writeText(code).then(() => setCopied(true), () => undefined);
+              void navigator.clipboard?.writeText(code).then(() => setCopied("code"), () => undefined);
             }}
             title="Copy invite code"
           >
-            <Copy size={14} /> {copied ? "Copied" : code}
+            <Copy size={14} /> {copied === "code" ? "Copied" : code}
+          </button>
+          <button type="button" className="btn btn-sm btn-primary" onClick={() => void share()} title="Share an invite link">
+            <Share2 size={14} /> {copied === "link" ? "Link copied" : "Invite"}
           </button>
           <button
             type="button"
@@ -222,6 +283,9 @@ function LeagueBoard({ code, uid, onLeave }: { code: string; uid: string; onLeav
       </div>
       {error ? <span className="form-error">{error}</span> : null}
       {!members && !error ? <Loading label="Loading leaderboard…" /> : null}
+      {members && members.length === 1 ? (
+        <span className="small muted">Just you so far. Tap Invite to send friends the link, or share the code {code}.</span>
+      ) : null}
       {members ? (
         <div className="table-wrap">
           <table>
@@ -236,10 +300,11 @@ function LeagueBoard({ code, uid, onLeave }: { code: string; uid: string; onLeav
             <tbody>
               {ranked.map((m) => (
                 <tr key={m.uid}>
-                  <td>{m.rank <= 3 ? <Medal size={16} aria-label={`Rank ${m.rank}`} style={{ color: ["#fde68a", "#e5e7eb", "#fdba74"][m.rank - 1] }} /> : m.rank}</td>
+                  <td>{m.rank <= 3 ? <Medal size={16} aria-label={`Rank ${m.rank}`} className={`medal medal-${m.rank}`} /> : m.rank}</td>
                   <td>
                     {m.displayName}
                     {m.uid === uid ? <span className="pill pill-primary pill-compact" style={{ marginLeft: 8 }}>You</span> : null}
+                    {m.updatedAt ? <span className="small dim" style={{ display: "block" }}>updated {updatedAgo(m.updatedAt, now)}</span> : null}
                   </td>
                   <td>
                     <strong>{m.disciplineScore}</strong>

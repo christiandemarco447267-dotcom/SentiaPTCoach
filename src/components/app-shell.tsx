@@ -5,6 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ArrowLeftRight,
+  Award,
+  BookOpenCheck,
+  ClipboardList,
   Cloud,
   CloudAlert,
   History,
@@ -36,6 +39,9 @@ import { ProfileSetup } from "./profile-setup";
 import { DisciplineWatcher } from "./discipline-card";
 import { FeedbackButton } from "./feedback-sheet";
 import { AnalyticsNotice, MicroSurvey, PageViewTracker } from "./pilot-prompts";
+import { ReportCardWatcher } from "./report-card-view";
+import { ChallengeWatcher } from "./challenges-view";
+import { PushAlertSync } from "./settings-extras";
 
 type NavItem = { href: string; label: string; icon: ComponentType<{ size?: number }>; section: string };
 
@@ -48,9 +54,12 @@ const NAV: NavItem[] = [
   { href: "/app/allocate", label: "Allocation", icon: PieChart, section: "Overview" },
   { href: "/app/thesis", label: "Theses", icon: NotebookPen, section: "Process" },
   { href: "/app/insights", label: "Insights", icon: Lightbulb, section: "Process" },
+  { href: "/app/report-card", label: "Report card", icon: ClipboardList, section: "Process" },
+  { href: "/app/journal", label: "Journal", icon: BookOpenCheck, section: "Process" },
   { href: "/app/coach", label: "Ask Sentia", icon: MessageCircle, section: "Process" },
   { href: "/app/legends", label: "Legends", icon: Landmark, section: "Process" },
   { href: "/app/time-machine", label: "Time Machine", icon: History, section: "Practice" },
+  { href: "/app/challenges", label: "Challenges", icon: Award, section: "Practice" },
   { href: "/app/leagues", label: "Leagues", icon: Trophy, section: "Practice" },
   { href: "/app/settings", label: "Settings", icon: Settings, section: "Practice" },
 ];
@@ -308,6 +317,9 @@ function Shell({ children }: { children: React.ReactNode }) {
       <OnboardingTour />
       <ToastHost />
       <DisciplineWatcher />
+      <ReportCardWatcher />
+      <ChallengeWatcher />
+      <PushAlertSync />
       <PageViewTracker />
       <div className="pilot-stack">
         <AnalyticsNotice />

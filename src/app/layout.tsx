@@ -3,6 +3,7 @@ import { Dancing_Script, DM_Sans, Fraunces } from "next/font/google";
 import { NativeBridge } from "@/components/native-bridge";
 import { assetPath } from "@/lib/asset";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL, siteUrl } from "@/lib/site";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 const dancingScript = Dancing_Script({
@@ -17,7 +18,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: "#070a1c",
-  colorScheme: "dark",
+  // Dark by default; Settings → Appearance can switch to light (applied before paint by THEME_INIT_SCRIPT).
+  colorScheme: "dark light",
   // Pinch-zoom stays allowed (accessibility). Inputs use 16px text on touch screens so iOS
   // doesn't auto-zoom on focus (globals.css), and the keyboard resizes the visual viewport only.
   interactiveWidget: "resizes-visual",
@@ -108,7 +110,18 @@ const BG_STYLE = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${fraunces.variable} ${dancingScript.variable}`} style={BG_STYLE}>
+    // suppressHydrationWarning: the theme script sets data-theme / color-scheme on <html> before React hydrates.
+    <html
+      lang="en"
+      data-theme="dark"
+      className={`${dmSans.variable} ${fraunces.variable} ${dancingScript.variable}`}
+      style={BG_STYLE}
+      suppressHydrationWarning
+    >
+      <head>
+        {/* Applies the saved light/dark preference before first paint (no flash). */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="antialiased">
         {children}
         <NativeBridge />

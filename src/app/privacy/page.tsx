@@ -33,7 +33,14 @@ export default function PrivacyPage() {
           <li>
             <strong>Demo mode:</strong> your portfolio is never sent to a server. The only exceptions are the optional
             features below, each of which you trigger yourself (asking the AI coach, sending feedback, opting in to usage
-            counts) or which send only ticker symbols (real prices).
+            counts) or which send only ticker symbols (real prices, ticker search).
+          </li>
+          <li>
+            <strong>Phone notifications</strong> for price alerts are shown by your device from data already on it. The
+            optional <strong>Background alerts (beta)</strong> switch, when the deployment offers it, sends your browser&apos;s
+            push address and your <em>active</em> price alerts (ticker, above/below, price) to the Sentia API so it can notify
+            you while the app is closed. Nothing else from your account is sent, triggered alerts are deleted from the server,
+            and turning the switch off removes the rest.
           </li>
           <li>
             <strong>Signed-in accounts</strong> (when the deployment has accounts enabled): your email address and, if you
@@ -124,6 +131,9 @@ export default function PrivacyPage() {
           gain), up to 10 recent trades with any mood tags, Bias Radar findings, your Discipline Score, your thesis
           titles/conviction/risks, and your return vs. the S&amp;P 500. It never includes your name, email or profile.
           The Sentia API doesn&apos;t store questions or answers; the provider processes them under its own API terms.
+          Your Ask Sentia conversation is saved only on this device (in <code>localStorage</code>, kept separately for
+          each account you sign in with) so it is still there when you come back. Use &ldquo;Clear chat&rdquo; in Ask
+          Sentia or &ldquo;Delete my data&rdquo; to remove it.
           The API counts questions per visitor per day (using a one-way hash of the IP address that changes daily) to
           cap costs.
         </p>

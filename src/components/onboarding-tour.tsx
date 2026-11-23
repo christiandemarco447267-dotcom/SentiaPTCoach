@@ -2,88 +2,134 @@
 
 import clsx from "clsx";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeftRight, Compass, Lightbulb, NotebookPen, Wallet } from "lucide-react";
-import type { ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeftRight, MessageCircle, Sparkles, Target } from "lucide-react";
+import { track } from "@/lib/analytics";
+import { ruleBasedAnswer } from "@/lib/coach";
+import { formatCurrency, formatNumber } from "@/lib/format";
+import { GOAL_OPTIONS } from "@/lib/goals";
+import { demoQuote, nameForSymbol } from "@/lib/market";
+import { floorShares } from "@/lib/position-size";
+import { quoteMap } from "@/lib/portfolio";
 import { SIM_DISCLAIMER } from "@/lib/site";
 import { useApp } from "@/lib/store";
+import type { PracticeGoal } from "@/lib/types";
 
-type Step = {
-  icon: ComponentType<{ size?: number }>;
-  title: string;
-  body: string;
-  href?: string;
-  cta?: string;
+/**
+ * Guided first session (~60 seconds): 1) pick a practice goal, 2) make a first
+ * (paper) trade with its three-question plan, 3) meet the coach. Opens once for new
+ * users after profile setup; skippable at every step and re-launchable from Settings.
+ */
+const STEPS = [
+  { key: "goal", icon: Target, label: "Pick a goal" },
+  { key: "trade", icon: ArrowLeftRight, label: "First trade" },
+  { key: "coach", icon: MessageCircle, label: "Meet the coach" },
+] as const;
+
+const PICKS: Record<PracticeGoal, string[]> = {
+  "beat-market": ["VOO", "AAPL", "MSFT"],
+  plan: ["AAPL", "VOO", "NVDA"],
+  diversify: ["SCHD", "VXUS", "AAPL"],
+  learn: ["VOO", "AAPL", "SCHD"],
 };
-
-const STEPS: Step[] = [
-  {
-    icon: ArrowLeftRight,
-    title: "Buy & sell for real practice",
-    body: "Trade against your cash balance. Sentia tracks your weighted-average cost basis and realizes profit or loss on every sale — just like the real thing.",
-    href: "/app/trade",
-    cta: "Open Trade",
-  },
-  {
-    icon: Wallet,
-    title: "Track everything",
-    body: "Your Portfolio shows holdings, total value, and gains. Allocation shows how your capital is spread across positions and cash.",
-    href: "/app/portfolio",
-    cta: "View Portfolio",
-  },
-  {
-    icon: NotebookPen,
-    title: "Invest with intent",
-    body: "Write a short thesis for each position so future-you remembers exactly why you bought it — the habit that separates investing from guessing.",
-    href: "/app/thesis",
-    cta: "Write a thesis",
-  },
-  {
-    icon: Lightbulb,
-    title: "Get focused coaching",
-    body: "Insights reads your portfolio and flags concentration, diversification, cash, and thesis coverage so you can invest with process.",
-    href: "/app/insights",
-    cta: "See insights",
-  },
-  {
-    icon: Compass,
-    title: "You're all set",
-    body: "Explore the workspace at your own pace. You can replay this tour anytime from Settings.",
-  },
-];
+const AMOUNTS = [250, 500, 1000];
 
 export function OnboardingTour() {
-  const { tourOpen, closeTour, actions } = useApp();
+  const { tourOpen } = useApp();
+  if (!tourOpen) return null;
+  return <GuidedSession />;
+}
+
+function GuidedSession() {
+  const { state, summary, quotes, market, closeTour, actions } = useApp();
   const [step, setStep] = useState(0);
+  const [goal, setGoal] = useState<PracticeGoal | null>(state?.profile.goal ?? null);
+  const picks = PICKS[goal ?? "learn"];
+  const [symbol, setSymbol] = useState(picks[0]);
+  const [amount, setAmount] = useState(500);
+  const [why, setWhy] = useState("");
+  const [bought, setBought] = useState<{ symbol: string; shares: number; price: number } | null>(null);
+  const [error, setError] = useState("");
   const dialogRef = useRef<HTMLDivElement>(null);
+  const finishRef = useRef<() => void>(() => undefined);
 
   const finish = () => {
-    actions.completeOnboarding();
+    try {
+      actions.completeOnboarding();
+    } catch {
+      // store not ready: just close
+    }
     closeTour();
-    setStep(0);
   };
-
-  // Move focus into the dialog when it opens and whenever the step changes,
-  // so screen readers announce the new step.
   useEffect(() => {
-    if (tourOpen) dialogRef.current?.focus();
-  }, [tourOpen, step]);
+    finishRef.current = finish;
+  });
 
   useEffect(() => {
-    if (!tourOpen) return;
+    dialogRef.current?.focus();
+  }, [step]);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") finish();
+      if (e.key === "Escape") finishRef.current();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tourOpen]);
+  }, []);
 
-  if (!tourOpen) return null;
+  const prices = useMemo(() => quoteMap(quotes), [quotes]);
+  const live = market.feed === "live";
+  const quote = prices.get(symbol) ?? (!live ? demoQuote(symbol) : undefined);
+  const price = quote?.price;
+  const shares = price ? floorShares(amount / price) : 0;
 
-  const current = STEPS[step];
-  const Icon = current.icon;
-  const isLast = step === STEPS.length - 1;
+  const coachText = useMemo(() => {
+    if (!state || !summary || step !== 2) return "";
+    try {
+      return ruleBasedAnswer("What should I review this week?", { state, summary }).text;
+    } catch {
+      return "";
+    }
+  }, [state, summary, step]);
+
+  if (!state) return null;
+  const S = STEPS[step];
+  const Icon = S.icon;
+
+  const chooseGoal = (g: PracticeGoal) => {
+    setGoal(g);
+    setSymbol(PICKS[g][0]);
+  };
+
+  const nextFromGoal = () => {
+    if (goal) {
+      try {
+        actions.setGoal(goal);
+      } catch {
+        // keep going
+      }
+    }
+    setStep(1);
+  };
+
+  const placeTrade = () => {
+    setError("");
+    if (!price || shares <= 0) return setError(live ? `No live price for ${symbol} right now. Pick another or skip this step.` : "Pick a stock first.");
+    if (!why.trim()) return setError("Add a few words on why. It's the first of the three plan questions.");
+    try {
+      actions.buy({
+        symbol,
+        shares,
+        price,
+        dayChange: quote?.changePercent,
+        plan: { why: why.trim(), exit: `Review in one week; sell if it falls 10% (about ${formatCurrency(price * 0.9)}).`, risk: Math.round(shares * price * 10) / 100 },
+      });
+      track("trade_placed");
+      setBought({ symbol, shares, price });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That trade couldn't be placed.");
+    }
+  };
 
   return (
     <div
@@ -92,66 +138,167 @@ export function OnboardingTour() {
         if (e.target === e.currentTarget) finish();
       }}
     >
-      <div
-        ref={dialogRef}
-        className="modal stack gap-md"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="tour-title"
-        aria-describedby="tour-body"
-        tabIndex={-1}
-      >
+      <div ref={dialogRef} className="modal stack gap-md guided" role="dialog" aria-modal="true" aria-labelledby="guided-title" tabIndex={-1}>
         <div className="row between">
-          <span className="tour-icon">
-            <Icon size={24} />
+          <span className="eyebrow">
+            Quick start · {step + 1} of {STEPS.length} · about a minute
           </span>
-          <button type="button" className="btn btn-sm" onClick={finish} aria-label="Skip tour">
+          <button type="button" className="btn btn-sm" onClick={finish} aria-label="Skip the guided session">
             Skip
           </button>
         </div>
-
-        <div className="stack gap-sm">
-          <span className="eyebrow">
-            Step {step + 1} of {STEPS.length}
-          </span>
-          <h2 id="tour-title" style={{ fontSize: "1.5rem" }}>
-            {current.title}
-          </h2>
-          <p id="tour-body" className="muted">
-            {current.body}
-          </p>
-          <p className="sim-disclaimer" role="note">
-            {SIM_DISCLAIMER}
-          </p>
+        <div className="guided-steps" aria-hidden="true">
+          {STEPS.map((s, i) => (
+            <span key={s.key} className={clsx("guided-step", i === step && "active", i < step && "done")}>
+              {s.label}
+            </span>
+          ))}
         </div>
 
-        {current.href ? (
-          <Link href={current.href} className="btn btn-sm" style={{ width: "fit-content" }} onClick={finish}>
-            {current.cta}
-          </Link>
+        {step === 0 ? (
+          <div className="stack gap-md">
+            <div className="row gap-sm">
+              <span className="tour-icon">
+                <Icon size={22} />
+              </span>
+              <h2 id="guided-title" style={{ fontSize: "1.35rem" }}>
+                What do you want to practise?
+              </h2>
+            </div>
+            <div className="stack gap-sm" role="group" aria-labelledby="guided-title">
+              {GOAL_OPTIONS.map((o) => (
+                <button key={o.value} type="button" className={clsx("choice", goal === o.value && "selected")} aria-pressed={goal === o.value} onClick={() => chooseGoal(o.value)}>
+                  <strong>{o.label}</strong>
+                  <span className="small muted">{o.hint}</span>
+                </button>
+              ))}
+            </div>
+            <p className="sim-disclaimer" role="note">
+              {SIM_DISCLAIMER}
+            </p>
+            <div className="row between">
+              <span className="small dim">Your goal pins a matching challenge.</span>
+              <button type="button" className="btn btn-primary btn-sm" onClick={nextFromGoal} disabled={!goal}>
+                Next
+              </button>
+            </div>
+          </div>
         ) : null}
 
-        <div className="row between" style={{ marginTop: 8 }}>
-          <div className="tour-dots" aria-hidden="true">
-            {STEPS.map((_, i) => (
-              <span key={i} className={clsx("tour-dot", i === step && "active")} />
-            ))}
-          </div>
-          <div className="row gap-sm">
-            {step > 0 ? (
-              <button type="button" className="btn btn-sm" onClick={() => setStep((s) => s - 1)}>
+        {step === 1 ? (
+          <div className="stack gap-md">
+            <div className="row gap-sm">
+              <span className="tour-icon">
+                <Icon size={22} />
+              </span>
+              <h2 id="guided-title" style={{ fontSize: "1.35rem" }}>
+                {bought ? "Nice. That's your first trade." : "Make your first paper trade"}
+              </h2>
+            </div>
+            {bought ? (
+              <div className="stack gap-sm">
+                <p className="muted" style={{ margin: 0 }}>
+                  You bought <strong>{formatNumber(bought.shares)} shares of {bought.symbol}</strong> at {formatCurrency(bought.price)} with play money. Your
+                  reason, exit plan and risk were saved with it, so you can check yourself later in the Trade journal.
+                </p>
+                <span className="small dim">Fractional shares are fine in Sentia, so any amount works.</span>
+              </div>
+            ) : (
+              <>
+                <span className="small muted">Pick one and an amount. It uses {live ? "the real market price" : "a simulated practice price"}; no real money moves.</span>
+                <div className="row wrap gap-sm" role="group" aria-label="Stock">
+                  {picks.map((s) => (
+                    <button key={s} type="button" className={clsx("chip guided-chip", symbol === s && "chip-on")} aria-pressed={symbol === s} onClick={() => setSymbol(s)}>
+                      <strong>{s}</strong> <span className="small muted">{nameForSymbol(s).replace(/,? Inc\.|Corporation| ETF.*$/g, "").trim()}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="segmented" role="group" aria-label="Amount">
+                  {AMOUNTS.map((a) => (
+                    <button key={a} type="button" className={amount === a ? "active" : ""} aria-pressed={amount === a} onClick={() => setAmount(a)}>
+                      {formatCurrency(a).replace(".00", "")}
+                    </button>
+                  ))}
+                </div>
+                <span className="small">
+                  {price ? (
+                    <>
+                      ≈ <strong>{formatNumber(shares)} shares</strong> at {formatCurrency(price)}
+                    </>
+                  ) : (
+                    <span className="loss">No live price for {symbol} yet.</span>
+                  )}
+                </span>
+                <div className="field">
+                  <label htmlFor="guided-why">Why this one? (your plan, question 1 of 3)</label>
+                  <input id="guided-why" className="input" maxLength={300} value={why} onChange={(e) => setWhy(e.target.value)} placeholder="e.g. I use their products every day" />
+                  <span className="small dim">We&apos;ll fill in a starter exit plan (review in a week, or sell after a 10% drop) and a 10% risk amount.</span>
+                </div>
+                {error ? (
+                  <span className="form-error" role="alert">
+                    {error}
+                  </span>
+                ) : null}
+              </>
+            )}
+            <div className="row between">
+              <button type="button" className="btn btn-sm" onClick={() => setStep(0)}>
                 Back
               </button>
-            ) : null}
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() => (isLast ? finish() : setStep((s) => s + 1))}
-            >
-              {isLast ? "Get started" : "Next"}
-            </button>
+              <span className="row gap-sm">
+                {bought ? null : (
+                  <button type="button" className="btn btn-sm" onClick={() => setStep(2)}>
+                    Skip trade
+                  </button>
+                )}
+                {bought ? (
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => setStep(2)}>
+                    Next
+                  </button>
+                ) : (
+                  <button type="button" className="btn btn-primary btn-sm" onClick={placeTrade}>
+                    Buy {symbol}
+                  </button>
+                )}
+              </span>
+            </div>
           </div>
-        </div>
+        ) : null}
+
+        {step === 2 ? (
+          <div className="stack gap-md">
+            <div className="row gap-sm">
+              <span className="tour-icon">
+                <Sparkles size={22} />
+              </span>
+              <h2 id="guided-title" style={{ fontSize: "1.35rem" }}>
+                Meet your coach
+              </h2>
+            </div>
+            <p className="small muted" style={{ margin: 0 }}>
+              Ask Sentia reads your paper account and answers questions like &ldquo;What should I review this week?&rdquo; Here&apos;s what it says right now:
+            </p>
+            {coachText ? <div className="bubble bubble-coach guided-bubble">{coachText}</div> : null}
+            <ul className="small muted" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
+              <li>Every Monday you get a report card with a grade and one tip.</li>
+              <li>Challenges earn badges for good habits.</li>
+            </ul>
+            <span className="small dim">Educational only, not investment advice. Replay this anytime from Settings.</span>
+            <div className="row between">
+              <button type="button" className="btn btn-sm" onClick={() => setStep(1)}>
+                Back
+              </button>
+              <span className="row gap-sm">
+                <Link href="/app/coach" className="btn btn-sm" onClick={finish}>
+                  Ask a question
+                </Link>
+                <button type="button" className="btn btn-primary btn-sm" onClick={finish}>
+                  Done
+                </button>
+              </span>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

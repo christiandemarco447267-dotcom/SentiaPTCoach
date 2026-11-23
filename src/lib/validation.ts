@@ -23,6 +23,8 @@ export const LIMITS = {
   maxReplayTrades: 500,
   maxReplayHistory: 20,
   maxLeagues: 10,
+  maxReports: 52,
+  maxBadges: 200,
 } as const;
 
 export function normalizeSymbol(raw: string): string {

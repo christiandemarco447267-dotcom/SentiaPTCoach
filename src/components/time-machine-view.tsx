@@ -30,7 +30,7 @@ const SCENARIOS = listScenarios();
 
 const TONE_ICON: Record<FeedbackTone, React.ReactNode> = {
   good: <CheckCircle2 size={16} className="gain" />,
-  watch: <TriangleAlert size={16} style={{ color: "#fbbf24" }} />,
+  watch: <TriangleAlert size={16} className="warn-icon" />,
   info: <Info size={16} className="muted" />,
 };
 

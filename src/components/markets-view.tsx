@@ -26,7 +26,7 @@ export function MarketsView() {
   const session = market.session ?? (market.status === "open" ? "open" : "closed");
   const statusText =
     market.feed === "live"
-      ? `Real prices · ${session === "open" ? "market open" : session === "pre" ? "pre-market" : session === "post" ? "after hours" : "market closed"}`
+      ? `Real price · play money · ${session === "open" ? "market open" : session === "pre" ? "pre-market" : session === "post" ? "after hours" : "market closed"}`
       : market.status === "error"
         ? "Market unavailable — showing last data"
         : market.status === "loading"
@@ -61,7 +61,8 @@ export function MarketsView() {
           </p>
         ) : (
           <p className="small muted" style={{ flexBasis: "100%", margin: 0 }}>
-            Each price shows its source: <strong>Live</strong> (current), <strong>Delayed</strong> (real, may lag), times in New York
+            Real market prices, simulated trades. Each price shows its source: <strong>Real price</strong> (current) or{" "}
+            <strong>Real price · delayed</strong> (may lag), times in New York
             (ET). US market holidays aren&apos;t detected by the clock fallback.
             {missing.length ? ` No price available for: ${missing.join(", ")}.` : ""}
           </p>

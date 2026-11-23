@@ -11,7 +11,7 @@ import {
   sell,
   withdraw,
 } from "./storage";
-import { AppStateSchema } from "./types";
+import { AppStateSchema, DEFAULT_SETTINGS, SCHEMA_VERSION } from "./types";
 
 test("createInitialState produces a schema-valid, reconciled ledger", () => {
   const state = createInitialState();
@@ -76,7 +76,7 @@ test("migrateUnknown upgrades a v1 state (dropping removed fields) and rejects g
   };
   const migrated = migrateUnknown(v1);
   assert.ok(migrated, "v1 should migrate");
-  assert.equal(migrated?.version, 4);
+  assert.equal(migrated?.version, SCHEMA_VERSION);
   assert.deepEqual(migrated?.orders, []);
   assert.equal(migrated?.holdings.length, 1);
   assert.ok(Array.isArray(migrated?.transactions));
@@ -117,7 +117,7 @@ test("migrateUnknown upgrades a saved v2 state, defaulting the new v3 fields", (
   const v2 = { ...rest, version: 2 };
   const migrated = migrateUnknown(JSON.parse(JSON.stringify(v2)));
   assert.ok(migrated, "v2 should migrate");
-  assert.equal(migrated?.version, 4);
+  assert.equal(migrated?.version, SCHEMA_VERSION);
   assert.deepEqual(migrated?.watchlist, []);
   assert.deepEqual(migrated?.alerts, []);
   assert.deepEqual(migrated?.orders, []);
@@ -127,7 +127,7 @@ test("migrateUnknown upgrades a saved v2 state, defaulting the new v3 fields", (
   assert.equal(migrated?.transactions.length, v3.transactions.length);
 });
 
-test("migrateUnknown upgrades a saved v3 state (localStorage / backup / Firestore) to v4 with defaults", () => {
+test("migrateUnknown upgrades a saved v3 state (localStorage / backup / Firestore) to the current version with defaults", () => {
   const v4 = createInitialState();
   const { settings, achievements, replay, replayHistory, leagues, ...rest } = v4;
   void settings;
@@ -138,8 +138,8 @@ test("migrateUnknown upgrades a saved v3 state (localStorage / backup / Firestor
   const v3 = JSON.parse(JSON.stringify({ ...rest, version: 3 }));
   const migrated = migrateUnknown(v3);
   assert.ok(migrated, "v3 should migrate");
-  assert.equal(migrated?.version, 4);
-  assert.deepEqual(migrated?.settings, { celebrations: true, haptics: true });
+  assert.equal(migrated?.version, SCHEMA_VERSION);
+  assert.deepEqual(migrated?.settings, { ...DEFAULT_SETTINGS });
   assert.deepEqual(migrated?.achievements, { disciplineMilestone: null });
   assert.equal(migrated?.replay, null);
   assert.deepEqual(migrated?.replayHistory, []);
@@ -147,7 +147,7 @@ test("migrateUnknown upgrades a saved v3 state (localStorage / backup / Firestor
   assert.equal(migrated?.transactions.length, v4.transactions.length);
   assert.equal(migrated?.transactions[0].mood, undefined);
   // Same path the backup importer and the Firestore loader use.
-  assert.equal(importStateJson(JSON.stringify(v3)).version, 4);
+  assert.equal(importStateJson(JSON.stringify(v3)).version, SCHEMA_VERSION);
 });
 
 test("buy/sell record mood, day change and the linked thesis on the ledger", () => {

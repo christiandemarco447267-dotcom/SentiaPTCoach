@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { LIMITS, SYMBOL_REGEX } from "./validation";
 
-export const SCHEMA_VERSION = 4 as const;
+export const SCHEMA_VERSION = 5 as const;
 
 const isoDate = z.string().datetime();
 const uuid = z.string().uuid();
@@ -55,6 +55,25 @@ export const ThesisSchema = z.object({
 });
 export type Thesis = z.infer<typeof ThesisSchema>;
 
+// ---- v5: pre-trade plan (checklist answers) and post-trade review -------------------
+
+export const TradePlanSchema = z.object({
+  /** Why am I buying? */
+  why: z.string().trim().min(1).max(300),
+  /** Exit plan: when will I sell (target, stop, or thesis break)? */
+  exit: z.string().trim().min(1).max(300),
+  /** Dollars I'm prepared to lose on this trade. */
+  risk: z.number().nonnegative().max(LIMITS.maxMoney),
+});
+export type TradePlan = z.infer<typeof TradePlanSchema>;
+
+export const TradeReviewSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  lesson: z.string().trim().max(500).default(""),
+  reviewedAt: isoDate,
+});
+export type TradeReview = z.infer<typeof TradeReviewSchema>;
+
 export const TransactionSchema = z.object({
   id: uuid,
   type: z.enum(TRANSACTION_TYPES),
@@ -71,18 +90,27 @@ export const TransactionSchema = z.object({
   dayChange: z.number().min(-100).max(10_000).optional(),
   /** v4: thesis linked to the position at trade time (celebrations, share cards). */
   thesisId: uuid.optional(),
+  /** v5: pre-trade checklist answers (buys). */
+  plan: TradePlanSchema.optional(),
+  /** v5: post-trade review (sells). */
+  review: TradeReviewSchema.optional(),
   createdAt: isoDate,
 });
 export type Transaction = z.infer<typeof TransactionSchema>;
 
 export const EXPERIENCE_LEVELS = ["new", "some", "experienced"] as const;
 export const FOCUS_AREAS = ["learn", "discipline", "growth", "explore"] as const;
+/** v5: the practice goal picked in the guided first session. */
+export const PRACTICE_GOALS = ["beat-market", "plan", "diversify", "learn"] as const;
+export type PracticeGoal = (typeof PRACTICE_GOALS)[number];
 
 export const ProfileSchema = z.object({
   experience: z.enum(EXPERIENCE_LEVELS).nullable().default(null),
   focus: z.enum(FOCUS_AREAS).nullable().default(null),
   avatarColor: z.string().trim().max(9).default("#0d9488"),
+  goal: z.enum(PRACTICE_GOALS).nullable().default(null),
 });
+export const DEFAULT_PROFILE = { experience: null, focus: null, avatarColor: "#0d9488", goal: null } as const;
 export type Profile = z.infer<typeof ProfileSchema>;
 
 const symbolField = z.string().trim().min(1).max(LIMITS.symbolMax).regex(SYMBOL_REGEX, "Invalid ticker symbol");
@@ -179,13 +207,61 @@ export const SettingsSchema = z.object({
   celebrations: z.boolean().default(true),
   /** Short vibration on supported phones. */
   haptics: z.boolean().default(true),
+  /** v5: ask the 3 pre-trade questions before a market buy. */
+  preTradeChecklist: z.boolean().default(true),
+  /** v5: mirror price alerts and order fills to system (phone) notifications. */
+  alertNotifications: z.boolean().default(false),
 });
+export const DEFAULT_SETTINGS = { celebrations: true, haptics: true, preTradeChecklist: true, alertNotifications: false } as const;
 export type Settings = z.infer<typeof SettingsSchema>;
 
 export const AchievementsSchema = z.object({
   /** Highest Discipline Score milestone already recorded (null = not yet baselined). */
   disciplineMilestone: z.number().int().min(0).max(100).nullable().default(null),
 });
+
+// ---- v5: weekly report cards, badges and "hold through a dip" tracking ----------
+
+export const ReportTradeSchema = z.object({
+  symbol: symbolField,
+  gain: z.number().min(-LIMITS.maxMoney).max(LIMITS.maxMoney),
+  gainPct: z.number().min(-100).max(100_000).nullable(),
+});
+export type ReportTrade = z.infer<typeof ReportTradeSchema>;
+
+export const WeeklyReportSchema = z.object({
+  /** Local date (YYYY-MM-DD) of the Monday the week starts on. */
+  week: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  grade: z.enum(["A", "B", "C", "D", "F"]),
+  score: z.number().int().min(0).max(100),
+  returnPct: z.number().min(-100).max(100_000).nullable(),
+  spyReturnPct: z.number().min(-100).max(100_000).nullable(),
+  trades: z.number().int().nonnegative().max(100_000),
+  best: ReportTradeSchema.nullable(),
+  worst: ReportTradeSchema.nullable(),
+  notes: z.array(z.string().trim().max(240)).max(6),
+  tip: z.string().trim().min(1).max(900),
+  tipSource: z.enum(["coach", "ai"]),
+  createdAt: isoDate,
+});
+export type WeeklyReport = z.infer<typeof WeeklyReportSchema>;
+
+export const BadgeSchema = z.object({
+  /** Challenge id, plus ":<period>" for repeatable ones (e.g. "beat-spy-month:2026-10"). */
+  id: z.string().regex(/^[a-z0-9-]{1,40}(:[0-9-]{4,10})?$/),
+  earnedAt: isoDate,
+});
+export type Badge = z.infer<typeof BadgeSchema>;
+
+export const DipWatchSchema = z.object({
+  holdingId: uuid,
+  symbol: symbolField,
+  /** When the position was first seen 5%+ below its cost. */
+  dipAt: isoDate,
+  /** Worst drawdown seen vs cost, in % (negative). */
+  dipPct: z.number().min(-100).max(0),
+});
+export type DipWatch = z.infer<typeof DipWatchSchema>;
 
 export const LEAGUE_CODE_REGEX = /^[A-HJ-NP-Z2-9]{6}$/;
 
@@ -194,7 +270,7 @@ export const AppStateSchema = z.object({
   profileName: z.string().trim().max(40).default(""),
   onboardedAt: isoDate.nullable().default(null),
   profileSetupAt: isoDate.nullable().default(null),
-  profile: ProfileSchema.default({ experience: null, focus: null, avatarColor: "#0d9488" }),
+  profile: ProfileSchema.default({ ...DEFAULT_PROFILE }),
   cash: z.number().nonnegative().max(LIMITS.maxMoney),
   holdings: z.array(HoldingSchema).max(LIMITS.maxHoldings),
   theses: z.array(ThesisSchema).max(LIMITS.maxTheses),
@@ -204,11 +280,15 @@ export const AppStateSchema = z.object({
   orders: z.array(PendingOrderSchema).max(LIMITS.maxOrders).default([]),
   snapshots: z.array(PerfSnapshotSchema).max(LIMITS.maxSnapshots).default([]),
   // v4
-  settings: SettingsSchema.default({ celebrations: true, haptics: true }),
+  settings: SettingsSchema.default({ ...DEFAULT_SETTINGS }),
   achievements: AchievementsSchema.default({ disciplineMilestone: null }),
   replay: ReplaySessionSchema.nullable().default(null),
   replayHistory: z.array(ReplayResultSchema).max(LIMITS.maxReplayHistory).default([]),
   leagues: z.array(z.string().regex(LEAGUE_CODE_REGEX)).max(LIMITS.maxLeagues).default([]),
+  // v5
+  reports: z.array(WeeklyReportSchema).max(LIMITS.maxReports).default([]),
+  badges: z.array(BadgeSchema).max(LIMITS.maxBadges).default([]),
+  dips: z.array(DipWatchSchema).max(LIMITS.maxHoldings).default([]),
   createdAt: isoDate,
   updatedAt: isoDate,
 });

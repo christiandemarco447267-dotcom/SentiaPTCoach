@@ -91,7 +91,7 @@ export function Sparkline({ symbol, width = 88, height = 30 }: { symbol: string;
 /**
  * Small "Demo prices" badge, shown only while market data is simulated (no live
  * service configured, or the configured one is unreachable). Renders nothing for
- * real prices — each quote then carries its own Live / Delayed badge.
+ * real prices — each quote then carries its own "Real price" / "Real price · delayed" badge.
  */
 export function DemoPricesBadge({ className }: { className?: string }) {
   const { market } = useApp();
@@ -114,7 +114,7 @@ export function DemoPricesBadge({ className }: { className?: string }) {
   );
 }
 
-/** Per-quote data badge: Live / Delayed / Demo, with an "as of" time (America/New_York) on hover and for screen readers. */
+/** Per-quote data badge: Real price / Real price · delayed / Demo, with an "as of" time (America/New_York) on hover and for screen readers. */
 export function QuoteBadge({ quote, showTime = false, className }: { quote: Quote | undefined; showTime?: boolean; className?: string }) {
   const badge = quoteBadge(quote);
   const time = showTime ? badge.when : "";

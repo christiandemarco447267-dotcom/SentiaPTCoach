@@ -5,48 +5,14 @@ import { useMemo, useState } from "react";
 import { Bell, BellPlus, BellRing, Trash2 } from "lucide-react";
 import { alertCrossed } from "@/lib/alerts";
 import { formatCurrency, formatPercent, formatRelativeDay } from "@/lib/format";
-import { DEMO_UNIVERSE, nameForSymbol } from "@/lib/market";
+import { nameForSymbol } from "@/lib/market";
 import { quoteMap } from "@/lib/portfolio";
 import { useApp } from "@/lib/store";
 import type { PriceAlert } from "@/lib/types";
 import { isValidSymbol, normalizeSymbol, parseAmount } from "@/lib/validation";
 import { DemoPricesBadge, EmptyState, Loading, PageHeader, Panel, QuoteBadge, Sparkline, StarButton } from "./ui";
-
-type Permission = NotificationPermission | "unsupported";
-
-function readPermission(): Permission {
-  return typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported";
-}
-
-function NotificationToggle() {
-  const [permission, setPermission] = useState<Permission>(readPermission);
-  if (permission === "unsupported") return null;
-  if (permission === "granted") {
-    return (
-      <span className="pill pill-primary" title="Alerts and order fills also show as browser notifications.">
-        <BellRing size={14} /> Browser alerts on
-      </span>
-    );
-  }
-  if (permission === "denied") {
-    return (
-      <span className="pill" title="Notifications are blocked in your browser settings. In-app alerts still work.">
-        <Bell size={14} /> Browser alerts blocked
-      </span>
-    );
-  }
-  return (
-    <button
-      type="button"
-      className="btn btn-sm"
-      onClick={() => {
-        void Notification.requestPermission().then(setPermission, () => setPermission(readPermission()));
-      }}
-    >
-      <BellRing size={15} /> Enable browser alerts
-    </button>
-  );
-}
+import { NotificationToggle } from "./settings-extras";
+import { SymbolSearch } from "./symbol-search";
 
 function AlertForm({ symbol, price, onDone }: { symbol: string; price?: number; onDone: () => void }) {
   const { actions } = useApp();
@@ -194,24 +160,13 @@ export function WatchlistView() {
 
       <Panel className="stack gap-md">
         <form className="row wrap gap-sm" onSubmit={add}>
-          <input
-            className="input"
-            style={{ maxWidth: 220 }}
-            list="watch-symbol-options"
+          <SymbolSearch
             value={addSymbol}
-            onChange={(e) => setAddSymbol(e.target.value.toUpperCase())}
-            placeholder="Add a ticker, e.g. NVDA"
-            maxLength={12}
-            aria-label="Ticker to watch"
-            autoComplete="off"
+            onChange={setAddSymbol}
+            placeholder="Add a ticker, e.g. NVDA or Nvidia"
+            ariaLabel="Ticker to watch"
+            style={{ maxWidth: 280, flex: "1 1 200px" }}
           />
-          <datalist id="watch-symbol-options">
-            {DEMO_UNIVERSE.map((entry) => (
-              <option key={entry.symbol} value={entry.symbol}>
-                {entry.name}
-              </option>
-            ))}
-          </datalist>
           <button type="submit" className="btn btn-primary btn-sm" disabled={!addSymbol.trim()}>
             Watch
           </button>

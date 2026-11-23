@@ -1,6 +1,17 @@
 import { nameForSymbol } from "./market";
 import { computeBuy, computeSell, round2 } from "./portfolio";
-import { AppState, AppStateSchema, SCHEMA_VERSION, Thesis, Transaction, type Mood, type Settings } from "./types";
+import {
+  AppState,
+  AppStateSchema,
+  DEFAULT_PROFILE,
+  DEFAULT_SETTINGS,
+  SCHEMA_VERSION,
+  Thesis,
+  Transaction,
+  type Mood,
+  type Settings,
+  type TradePlan,
+} from "./types";
 import { LIMITS } from "./validation";
 
 export const STORAGE_KEY = "sentia.state.v2";
@@ -130,7 +141,7 @@ export function createInitialState(): AppState {
     profileName: "",
     onboardedAt: null,
     profileSetupAt: null,
-    profile: { experience: null, focus: null, avatarColor: "#0d9488" },
+    profile: { ...DEFAULT_PROFILE },
     cash: runningCash,
     holdings,
     theses,
@@ -139,11 +150,14 @@ export function createInitialState(): AppState {
     alerts: [],
     orders: [],
     snapshots: [],
-    settings: { celebrations: true, haptics: true },
+    settings: { ...DEFAULT_SETTINGS },
     achievements: { disciplineMilestone: null },
     replay: null,
     replayHistory: [],
     leagues: [],
+    reports: [],
+    badges: [],
+    dips: [],
     createdAt: created,
     updatedAt: created,
   };
@@ -198,8 +212,18 @@ export function withdraw(state: AppState, amount: number, note = ""): AppState {
 
 // ---- Trading -------------------------------------------------------------
 
-/** Optional context recorded on a trade (v4): the user's mood and the symbol's day change. */
-export type TradeMeta = { mood?: Mood; dayChange?: number };
+/** Optional context recorded on a trade: the user's mood and the symbol's day change (v4), pre-trade plan (v5, buys). */
+export type TradeMeta = { mood?: Mood; dayChange?: number; plan?: TradePlan };
+
+/** Trim and bound pre-trade checklist answers; null when they're incomplete. */
+export function cleanPlan(plan: TradePlan | undefined): TradePlan | null {
+  if (!plan) return null;
+  const why = plan.why.trim().slice(0, 300);
+  const exit = plan.exit.trim().slice(0, 300);
+  const risk = round2(plan.risk);
+  if (!why || !exit || !Number.isFinite(risk) || risk < 0) return null;
+  return { why, exit, risk: Math.min(risk, LIMITS.maxMoney) };
+}
 
 function metaFields(meta: TradeMeta | undefined): Pick<Transaction, "mood" | "dayChange"> {
   const out: Pick<Transaction, "mood" | "dayChange"> = {};
@@ -236,6 +260,7 @@ export function buy(
     note: note.slice(0, 200),
     ...metaFields(meta),
     ...(thesisId ? { thesisId } : {}),
+    ...(cleanPlan(meta?.plan) ? { plan: cleanPlan(meta?.plan) as TradePlan } : {}),
     createdAt: now,
   };
   return commit({
@@ -358,6 +383,7 @@ export type ProfileInput = {
 /** Save profile fields. Marks the profile as set up (once) so the wizard won't reappear. */
 export function saveProfile(state: AppState, input: ProfileInput): AppState {
   const profile = {
+    ...state.profile,
     experience: input.experience !== undefined ? input.experience : state.profile.experience,
     focus: input.focus !== undefined ? input.focus : state.profile.focus,
     avatarColor: input.avatarColor ?? state.profile.avatarColor,
@@ -374,6 +400,22 @@ export function saveProfile(state: AppState, input: ProfileInput): AppState {
 
 export function updateSettings(state: AppState, patch: Partial<Settings>): AppState {
   return commit({ ...state, settings: { ...state.settings, ...patch } });
+}
+
+// ---- v5: post-trade review, practice goal ------------------------------------
+
+/** Rate a closed trade 1–5 and note a lesson. Only sells can be reviewed; re-reviewing replaces the old review. */
+export function reviewTrade(state: AppState, txId: string, input: { rating: number; lesson?: string }): AppState {
+  const tx = state.transactions.find((t) => t.id === txId);
+  if (!tx || tx.type !== "sell") throw new Error("Only a completed sell can be reviewed.");
+  const rating = Math.round(input.rating);
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) throw new Error("Pick a rating from 1 to 5.");
+  const review = { rating, lesson: (input.lesson ?? "").trim().slice(0, 500), reviewedAt: nowIso() };
+  return commit({ ...state, transactions: state.transactions.map((t) => (t.id === txId ? { ...t, review } : t)) });
+}
+
+export function setPracticeGoal(state: AppState, goal: AppState["profile"]["goal"]): AppState {
+  return commit({ ...state, profile: { ...state.profile, goal } });
 }
 
 /** Record the highest Discipline Score milestone reached (never moves down). */
@@ -411,10 +453,11 @@ export function migrateUnknown(raw: unknown): AppState | null {
 
   if (raw && typeof raw === "object" && "version" in raw) {
     let data = raw as Record<string, unknown>;
-    // Step through each migration in order: v1 → v2 → v3 → v4.
+    // Step through each migration in order: v1 → v2 → v3 → v4 → v5.
     if (data.version === 1) data = migrateV1(data);
     if (data.version === 2) data = migrateV2(data);
     if (data.version === 3) data = migrateV3(data);
+    if (data.version === 4) data = migrateV4(data);
     if (data.version === SCHEMA_VERSION) {
       const migrated = AppStateSchema.safeParse(data);
       if (migrated.success) return migrated.data;
@@ -470,6 +513,25 @@ function migrateV3(v3: Record<string, unknown>): Record<string, unknown> {
     replay: null,
     replayHistory: [],
     leagues: [],
+  };
+}
+
+/**
+ * v4 → v5: adds the practice goal (unset), the pre-trade checklist (on) and phone
+ * notifications (off) settings, and empty weekly reports, badges and dip tracking.
+ * Existing trades simply have no plan or review.
+ */
+function migrateV4(v4: Record<string, unknown>): Record<string, unknown> {
+  const settings = v4.settings && typeof v4.settings === "object" ? (v4.settings as Record<string, unknown>) : {};
+  const profile = v4.profile && typeof v4.profile === "object" ? (v4.profile as Record<string, unknown>) : {};
+  return {
+    ...v4,
+    version: 5,
+    profile: { ...DEFAULT_PROFILE, ...profile, goal: null },
+    settings: { ...DEFAULT_SETTINGS, ...settings },
+    reports: [],
+    badges: [],
+    dips: [],
   };
 }
 

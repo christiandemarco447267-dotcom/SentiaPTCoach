@@ -1,10 +1,10 @@
 # Sentia
 
-[![CI](https://github.com/christiandemarco447267-dotcom/Cursor-/actions/workflows/ci.yml/badge.svg)](https://github.com/christiandemarco447267-dotcom/Cursor-/actions/workflows/ci.yml)
-[![Deploy to GitHub Pages](https://github.com/christiandemarco447267-dotcom/Cursor-/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/christiandemarco447267-dotcom/Cursor-/actions/workflows/deploy-pages.yml)
+[![CI](https://github.com/christiandemarco447267-dotcom/SentiaPTCoach/actions/workflows/ci.yml/badge.svg)](https://github.com/christiandemarco447267-dotcom/SentiaPTCoach/actions/workflows/ci.yml)
+[![Deploy to GitHub Pages](https://github.com/christiandemarco447267-dotcom/SentiaPTCoach/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/christiandemarco447267-dotcom/SentiaPTCoach/actions/workflows/deploy-pages.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-7c3aed.svg)](LICENSE)
 
-**Live demo:** https://christiandemarco447267-dotcom.github.io/Cursor-/
+**Live demo:** https://christiandemarco447267-dotcom.github.io/SentiaPTCoach/
 
 **Sentia** is a stable, professional paper-trading coach — an educational, local-first
 app for practicing a disciplined investing *process*. Not a brokerage and not investment
@@ -29,9 +29,9 @@ Ask Sentia, Legend portfolios, the Time Machine and friend leagues.
   with your return, SPY's return, outperformance, max drawdown and win rate of closed trades (Portfolio +
   Home). History is capped at 500 points and thinned evenly, always keeping the starting point.
 - **Watchlist + price alerts** — Star tickers in Markets or Trade; `/app/watchlist` shows live price/change and
-  lets you add one-time **"above $X" / "below $X"** alerts. Each fires once (in-app toast, plus a browser
-  notification if you allow it), then moves to *Triggered*. Alerts and orders are only checked while the app
-  is open in a tab.
+  lets you add one-time **"above $X" / "below $X"** alerts. Each fires once (in-app toast, plus a phone/browser
+  notification if you turn that on in Settings), then moves to *Triggered*. Alerts and orders are checked while
+  the app is open or recently open (optional background alerts: see `worker/README.md`).
 - **Investment theses** — Write, edit, and delete a thesis for each idea; holdings can be
   **linked to a thesis**, and Insights uses that link to keep you honest.
 - **Realtime, auto-updating market data** — `/api/market` reports true `open`/`closed`
@@ -44,6 +44,35 @@ Ask Sentia, Legend portfolios, the Time Machine and friend leagues.
   synchronization, and a local-first store. A short profile setup + optional onboarding
   tour help first-time users.
 - **Mobile-friendly** — A clean top bar + slide-in navigation drawer on phones.
+
+### New in the November 2026 update (data schema v5)
+
+- **Guided first session** — about 60 seconds for new users: pick a practice goal, place a first paper trade
+  (with its plan), meet the coach. Skippable; replay it from *Settings → Getting started*.
+- **Weekly report card** (`/app/report-card`) — every Monday: a letter grade, best and worst closed trade,
+  return vs the S&P 500 (SPY), discipline notes and one coach tip (built-in coach, or the AI coach when the
+  Sentia API is configured, with fallback). History is kept (last 52 weeks), plus a "this week so far" preview.
+- **Ticker search** — autocomplete by ticker or company name (Trade, Watchlist, Theses) across the app's symbol
+  directory, merged with the Sentia API's `/search` (Finnhub) when available.
+- **Position sizer** (Trade) — account size × risk % ÷ (entry − stop) → suggested shares (fractional), with a
+  cash check and a one-tap "use these shares".
+- **Pre-trade checklist** — before a market buy: why, exit plan, risk amount; saved with the trade. Turn it off
+  in *Settings → Trading habits*.
+- **Post-trade review + Trade journal** (`/app/journal`) — after a sell, rate the trade 1–5 and note a lesson;
+  the journal lists reviews, sells waiting for one, and every saved plan.
+- **Challenges & badges** (`/app/challenges`) — beat the S&P this month, 5 trades with a plan, hold through a
+  dip, diversify across 3 sectors, review 3 trades; progress bars, badges and a little celebration.
+- **Phone notifications** — price alerts and order fills via the service worker (`showNotification`), with a
+  permission prompt and test in *Settings → Phone notifications*. They fire while Sentia is open or recently
+  open; optional **background alerts** via Web Push + the Worker's cron are off until configured
+  (`worker/README.md`).
+- **Light / dark / system theme** — *Settings → Appearance* (dark by default), saved per device, applied before
+  first paint.
+- **CSV export** — trades (with plans and reviews) and holdings, from Settings, Portfolio and the Journal.
+- **Clearer price labels** — real quotes read "Real price · play money"; simulated ones stay "Demo".
+- **Leagues** — invite links, live "updated … ago", friendlier errors; Firebase variables are now wired into
+  the Pages workflow. Setup: `LEAGUES_SETUP.md`.
+- **Custom domain ready** — set the `PAGES_CUSTOM_DOMAIN` repository variable; see `CUSTOM_DOMAIN.md`.
 
 ### Coaching & practice features
 
@@ -151,7 +180,7 @@ verified email required).
 **Option A — Live demo on GitHub Pages.** Once the *Deploy to GitHub Pages* workflow has
 run (and Pages is set to “GitHub Actions” in repo settings), the app is available at:
 
-> **https://christiandemarco447267-dotcom.github.io/Cursor-/**
+> **https://christiandemarco447267-dotcom.github.io/SentiaPTCoach/**
 
 This is a fully static, browser-only build (local-first data + client-side demo market
 prices), so everything except live quotes works exactly like the dev server. Simulated
@@ -201,7 +230,7 @@ its built-in rules, and feedback opens a prefilled email / GitHub issue.
 
 Sentia ships as native Android and iOS apps through [Capacitor](https://capacitorjs.com) (`android/`, `ios/`, `capacitor.config.ts`) and as an installable PWA with an offline fallback.
 
-- `npm run build:mobile` — static export **without** a base path for the apps, then `npx cap sync`. (The GitHub Pages build under `/Cursor-` is separate and unchanged; reproduce it locally with `npm run build:pages`.)
+- `npm run build:mobile` — static export **without** a base path for the apps, then `npx cap sync`. (The GitHub Pages build under `/SentiaPTCoach` is separate and unchanged; reproduce it locally with `npm run build:pages`.)
 - `npm run cap:android` / `npm run cap:ios` — open Android Studio / Xcode (iOS needs a Mac with Xcode 26+).
 - `npm run assets:generate` — regenerate every icon and splash image from `public/icon.png` (ImageMagick).
 - Release checklist: [STORE_RELEASE.md](STORE_RELEASE.md) · listing copy & screenshots: [STORE_LISTING.md](STORE_LISTING.md), `store-assets/`.
@@ -233,8 +262,8 @@ Sentia ships as native Android and iOS apps through [Capacitor](https://capacito
 ## Privacy & terms
 
 In demo mode everything you enter stays in your browser (`localStorage`). Signed-in accounts store the paper
-account in Firestore, readable and writable only by that user. See the in-app [Privacy](https://christiandemarco447267-dotcom.github.io/Cursor-/privacy/)
-and [Terms](https://christiandemarco447267-dotcom.github.io/Cursor-/terms/) pages (`/privacy`, `/terms`).
+account in Firestore, readable and writable only by that user. See the in-app [Privacy](https://christiandemarco447267-dotcom.github.io/SentiaPTCoach/privacy/)
+and [Terms](https://christiandemarco447267-dotcom.github.io/SentiaPTCoach/terms/) pages (`/privacy`, `/terms`).
 
 ## Disclaimer
 

@@ -6,6 +6,10 @@
 //   POST /event           anonymous usage counts (aggregate per day)
 //   GET  /stats?days=7    owner only: daily usage counts
 //   POST /coach           streamed AI coach answer (text/plain)
+//   GET  /search?q=       ticker autocomplete (Finnhub symbol search; needs FINNHUB_API_KEY)
+//   POST /push/subscribe  optional background price alerts: save a Web Push subscription + active alerts
+//   POST /push/unsubscribe
+//   cron (scheduled)      optional: checks stored alerts and sends Web Push (off until VAPID keys + a cron trigger are set)
 import { callCoach, CoachError, MAX_OUTPUT_TOKENS, resolveProvider, validateCoachRequest } from "./coach";
 import { intVar, type Env } from "./env";
 import { listFeedback, MESSAGE_MAX, storeFeedback, forwardFeedback, validateFeedback, type FeedbackRecord } from "./feedback";
@@ -13,11 +17,15 @@ import { readStats, recordBatch, tallyBatch } from "./events";
 import { clientIp, corsHeaders, errorJson, isAdmin, isAllowedOrigin, json, readJson } from "./http";
 import { getQuotes, parseSymbols } from "./quote";
 import { ipBucket, kvCounter, MemoryRateLimiter } from "./ratelimit";
+import { deleteRecord, pushConfigured, runAlertCron, saveRecord, validateSubscribe } from "./push";
+import { parseQuery, searchSymbols } from "./search";
 
 const quoteLimiter = new MemoryRateLimiter(60, 60_000);
 const eventLimiter = new MemoryRateLimiter(30, 60_000);
 const feedbackBurst = new MemoryRateLimiter(3, 60_000);
 const coachBurst = new MemoryRateLimiter(6, 60_000);
+const searchLimiter = new MemoryRateLimiter(40, 60_000);
+const pushLimiter = new MemoryRateLimiter(20, 60_000);
 
 type Ctx = Pick<ExecutionContext, "waitUntil">;
 
@@ -44,6 +52,8 @@ export async function handle(request: Request, env: Env, ctx: Ctx, f: typeof fet
           coach: Boolean(resolveProvider(env)),
           feedback: Boolean(env.SENTIA_KV),
           analytics: Boolean(env.SENTIA_KV),
+          search: Boolean(env.FINNHUB_API_KEY),
+          push: pushConfigured(env),
         },
         200,
         { ...cors, "Cache-Control": "no-store" },
@@ -57,6 +67,31 @@ export async function handle(request: Request, env: Env, ctx: Ctx, f: typeof fet
       if ("error" in parsed) return errorJson(400, parsed.error, cors);
       const body = await getQuotes(parsed.symbols, env, f, now);
       return json(body, 200, { ...cors, "Cache-Control": "no-store" });
+    }
+
+    if (path === "/search" && request.method === "GET") {
+      if (!searchLimiter.check(ip, now).ok) return errorJson(429, "Too many requests.", cors);
+      const parsed = parseQuery(url.searchParams.get("q"));
+      if ("error" in parsed) return errorJson(400, parsed.error, cors);
+      const results = await searchSymbols(parsed.q, env, f, now);
+      if (results === null) return errorJson(503, "Ticker search needs a market-data key on the server.", cors);
+      return json({ results }, 200, { ...cors, "Cache-Control": "no-store" });
+    }
+
+    if (path === "/push/subscribe" && request.method === "POST") {
+      if (!pushConfigured(env)) return errorJson(503, "Background alerts are not configured on this server.", cors);
+      if (!pushLimiter.check(ip, now).ok) return errorJson(429, "Too many requests.", cors);
+      const parsed = validateSubscribe(await readJson(request, 20_000));
+      if (!parsed.ok) return errorJson(400, parsed.error, cors);
+      await saveRecord(env, parsed.sub, parsed.alerts, now);
+      return json({ ok: true, alerts: parsed.alerts.length }, 200, cors);
+    }
+
+    if (path === "/push/unsubscribe" && request.method === "POST") {
+      if (!pushLimiter.check(ip, now).ok) return errorJson(429, "Too many requests.", cors);
+      const body = (await readJson(request, 4000)) as { endpoint?: unknown } | null;
+      if (typeof body?.endpoint === "string") await deleteRecord(env, body.endpoint);
+      return json({ ok: true }, 200, cors);
     }
 
     if (path === "/feedback" && request.method === "POST") {
@@ -131,8 +166,28 @@ export async function handle(request: Request, env: Env, ctx: Ctx, f: typeof fet
   }
 }
 
+/** Cron: background price alerts (no-op unless push is configured). */
+export async function scheduled(env: Env, f: typeof fetch = fetch, now: number = Date.now()) {
+  return runAlertCron(
+    env,
+    async (symbols) => {
+      const prices = new Map<string, number>();
+      for (let i = 0; i < symbols.length; i += 25) {
+        const res = await getQuotes(symbols.slice(i, i + 25), env, f, now);
+        for (const q of res.quotes) prices.set(q.symbol, q.price);
+      }
+      return prices;
+    },
+    f,
+    now,
+  );
+}
+
 export default {
   fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     return handle(request, env, ctx);
+  },
+  scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): void {
+    ctx.waitUntil(scheduled(env).then(() => undefined));
   },
 } satisfies ExportedHandler<Env>;

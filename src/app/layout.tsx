@@ -7,6 +7,7 @@ import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 import "./polish.css";
 import "./fixpass.css";
+import "./publish.css";
 
 const dancingScript = Dancing_Script({
   variable: "--font-brand",

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { BarChart3, Cloud, Compass, Download, PartyPopper, RotateCcw, ShieldCheck, Upload, UserRound } from "lucide-react";
 import { analyticsAvailable, setConsent } from "@/lib/analytics";
-import { apiConfigured } from "@/lib/api-config";
+import { APP_VERSION, apiConfigured } from "@/lib/api-config";
 import { useAnalyticsConsent } from "./pilot-prompts";
 import { celebrate, prefersReducedMotion } from "@/lib/celebrate";
 import { useAuth } from "@/lib/auth";
@@ -16,6 +16,7 @@ import { Loading, Panel, PageHeader } from "./ui";
 import { LevelSummary } from "./level-summary";
 import { AccountSecurity } from "./auth/account-security";
 import { AboutPanel, DeleteDataPanel } from "./delete-data";
+import { AppLegalFooter } from "./site-footer";
 import { REAUTH_NOTICE_KEY } from "./auth/email-link-complete";
 import { useReauth } from "./auth/reauth";
 import { CsvExport, HabitSettings, NotificationSettings, ThemeSettings } from "./settings-extras";
@@ -224,8 +225,8 @@ export function SettingsView() {
           {IS_STATIC_EXPORT ? (
             <li>
               {HAS_API
-                ? "Real prices come from the Sentia API (which keeps the market-data key on the server). If it can't be reached, prices switch to clearly labelled demo prices and orders/alerts pause."
-                : "This build has no live price service, so prices are simulated in your browser and labelled Demo."}
+                ? "Real prices come from the Sentia API (which keeps the market-data key on the server). If it can't be reached, prices switch to clearly labeled demo prices and orders/alerts pause."
+                : "This build has no live price service, so prices are simulated in your browser and labeled Demo."}
             </li>
           ) : (
             <>
@@ -286,6 +287,7 @@ export function SettingsView() {
         ) : null}
       </div>
       {reauth.dialog}
+      <AppLegalFooter version={APP_VERSION} />
     </div>
   );
 }

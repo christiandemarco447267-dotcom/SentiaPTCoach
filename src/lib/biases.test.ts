@@ -103,3 +103,24 @@ test("previewTradeBiases nudges before a trade without recording anything", () =
   assert.deepEqual(panic.map((n) => n.bias), ["panic"]);
   assert.equal(history.length, 2);
 });
+
+test("starter prices are not a 'recent high' baseline and planned buys are not flagged", () => {
+  const seeded = tx("buy", "VXUS", 0, 58.2, { note: "Opening position" });
+  // Unplanned buy: only its own +4% day can flag it, never the seeded price.
+  const unplanned = tx("buy", "VXUS", 1, 70, { dayChange: 0.5 });
+  assert.equal(detectBiasEvents([seeded, unplanned]).length, 0);
+  const planned = tx("buy", "VXUS", 2, 72, { dayChange: 5, plan: { why: "Diversify", exit: "Thesis break", risk: 20 } });
+  assert.equal(detectBiasEvents([seeded, planned]).length, 0);
+  const report = biasReport([seeded, planned], T0 + 3 * H);
+  assert.equal(report.trades, 1);
+  assert.equal(report.total, 0);
+});
+
+test("a planned buy right after a loss is not called a revenge trade", () => {
+  const events = detectBiasEvents([
+    tx("buy", "AAPL", 0, 100),
+    tx("sell", "AAPL", 2, 90, { realizedGain: -100 }),
+    tx("buy", "MSFT", 3, 100, { plan: { why: "Earnings thesis", exit: "Below 90", risk: 50 } }),
+  ]);
+  assert.equal(events.filter((e) => e.bias === "revenge").length, 0);
+});

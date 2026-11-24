@@ -25,15 +25,15 @@ export function fmtShares(n: number): string {
   return n.toLocaleString("en-US", { maximumFractionDigits: 6 });
 }
 
-/** Day in YYYY-MM-DD on the user's clock (stable, unambiguous for the model). */
-function day(iso: string): string {
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Day as "Nov 23, 2026" on the user's clock: readable, so the model repeats it naturally (never raw ISO). */
+export function coachDay(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return NA;
-  const y = d.getFullYear();
-  const m = `${d.getMonth() + 1}`.padStart(2, "0");
-  const dd = `${d.getDate()}`.padStart(2, "0");
-  return `${y}-${m}-${dd}`;
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 }
+const day = coachDay;
 
 function clip(text: string, max: number): string {
   const t = text.replace(/\s+/g, " ").trim();

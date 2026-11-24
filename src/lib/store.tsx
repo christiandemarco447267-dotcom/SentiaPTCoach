@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -47,6 +48,7 @@ import { AUTOSAVE_DEBOUNCE_MS, createDebouncedSaver, isRemoteNewer, type Debounc
 // Firestore sync loads on demand (signed-in accounts only), keeping the SDK off the guest path.
 const loadCloudStore = () => import("./cloud-store");
 import { normalizeSymbol } from "./validation";
+import { browserHistoryStorage, clearCoachHistory } from "./coach-history";
 
 // ---- Market config ---------------------------------------------------------
 
@@ -397,7 +399,7 @@ function mutate(fn: (state: AppState) => AppState) {
   const next = fn(current);
   const parsed = AppStateSchema.safeParse(next);
   if (!parsed.success) {
-    throw new Error("That action was cancelled because it would exceed allowed limits.");
+    throw new Error("That action was canceled because it would exceed allowed limits.");
   }
   const prev = current;
   setCurrent(parsed.data);
@@ -503,7 +505,7 @@ export type AppApi = {
     /** Hide the sample starter portfolio banner (keep the sample). */
     dismissStarter: () => void;
     /** Replace the sample starter portfolio with cash only. */
-    startFresh: () => void;
+    startFresh: (cash?: number) => void;
     setStressTest: (thesisId: string, input: stressOps.StressTestInput) => void;
     clearStressTest: (thesisId: string) => void;
     startReplay: (scenarioId: string) => void;
@@ -671,6 +673,13 @@ export function AppProvider({ mode: storageMode, children }: { mode: StorageMode
 
   const summary = useMemo(() => (state ? summarizePortfolio(state, market.quotes) : null), [state, market.quotes]);
 
+  // The coach chat is per storage scope; Start fresh / Reset clear the current scope's chat
+  // so the coach never cites positions that no longer exist.
+  const scopeRef = useRef(modeKey);
+  useEffect(() => {
+    scopeRef.current = modeKey;
+  }, [modeKey]);
+
   const actions = useMemo<AppApi["actions"]>(
     () => ({
       buy: ({ mood, dayChange, plan, ...input }) => mutate((s) => mutations.buy(s, input, "", { mood, dayChange, plan })),
@@ -690,13 +699,19 @@ export function AppProvider({ mode: storageMode, children }: { mode: StorageMode
       setProfileName: (name) => mutate((s) => mutations.setProfileName(s, name)),
       saveProfile: (input) => mutate((s) => mutations.saveProfile(s, input)),
       completeOnboarding: () => mutate((s) => mutations.completeOnboarding(s)),
-      reset: () => setCurrent(mutations.createInitialState()),
+      reset: () => {
+        clearCoachHistory(browserHistoryStorage(), scopeRef.current);
+        setCurrent(mutations.createInitialState());
+      },
       importJson: (raw) => setCurrent(mutations.importStateJson(raw)),
       exportJson: () => (current ? mutations.exportStateJson(current) : "{}"),
       updateSettings: (patch) => mutate((s) => mutations.updateSettings(s, patch)),
       recordDisciplineMilestone: (m) => mutate((s) => mutations.recordDisciplineMilestone(s, m)),
       dismissStarter: () => mutate((s) => mutations.dismissStarterNotice(s)),
-      startFresh: () => mutate((s) => mutations.startFresh(s)),
+      startFresh: (cash) => {
+        clearCoachHistory(browserHistoryStorage(), scopeRef.current);
+        mutate((s) => mutations.startFresh(s, cash ?? mutations.freshStartCash(s)));
+      },
       setStressTest: (thesisId, input) => mutate((s) => stressOps.setStressTest(s, thesisId, input)),
       clearStressTest: (thesisId) => mutate((s) => stressOps.clearStressTest(s, thesisId)),
       startReplay: (scenarioId) => mutate((s) => replayOps.startReplay(s, scenarioId)),

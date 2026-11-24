@@ -203,7 +203,7 @@ export function winRate(transactions: Transaction[]): WinRate {
 /** One-line description of a win rate, e.g. "1 of 2 decided trades · 1 break-even". */
 export function winRateHint(w: WinRate): string {
   const be = w.breakeven ? `${w.breakeven} break-even` : "";
-  if (!w.closed) return be ? `${be} (not counted as a win or loss)` : "No closed trades yet";
+  if (!w.closed) return be ? `No wins or losses yet · ${be}` : "No closed trades yet";
   return `${w.wins} of ${w.closed} closed trade${w.closed === 1 ? "" : "s"}${be ? ` · ${be}` : ""}`;
 }
 
@@ -215,6 +215,19 @@ export type MarketStanding = "ahead" | "even" | "behind";
 export function marketStanding(outperformancePct: number): MarketStanding {
   if (Math.abs(outperformancePct) < EVEN_THRESHOLD_PTS) return "even";
   return outperformancePct > 0 ? "ahead" : "behind";
+}
+
+/**
+ * One sentence comparing a period's return with the S&P 500, using the same ±0.05-pt
+ * "even" rule as the Portfolio: e.g. "Even with the S&P 500 this week.",
+ * "Ahead of the S&P 500 by 1.20 points this week."
+ */
+export function marketGapSentence(outperformancePct: number, period = "this week"): string {
+  const s = marketStanding(outperformancePct);
+  const tail = period ? ` ${period}` : "";
+  if (s === "even") return `Even with the S&P 500${tail}.`;
+  const pts = Math.abs(outperformancePct).toFixed(2);
+  return `${s === "ahead" ? "Ahead of" : "Behind"} the S&P 500 by ${pts} points${tail}.`;
 }
 
 export function marketStandingLabel(outperformancePct: number): string {

@@ -144,7 +144,20 @@ function positionLine(h: PortfolioSummary["holdings"][number], total: number): s
   return `You hold ${formatShares(h.shares)} ${h.symbol} at an average cost of ${money(h.avgCost)}, worth ${money(h.marketValue)} (${pct(weight)} of your portfolio), ${h.gain >= 0 ? "up" : "down"} ${money(Math.abs(h.gain))} (${formatSignedPercent(h.gainPercent)}).`;
 }
 
+/** End a bullet with a period unless it already ends in terminal punctuation. */
+export function asSentence(text: string): string {
+  const t = text.trimEnd();
+  if (!t) return t;
+  return /[.!?…:)]$|[.!?]["”’)]$/.test(t) ? t : `${t}.`;
+}
+
+/** Built-in coach answer, with every bullet ending in a period. */
 export function ruleBasedAnswer(question: string, ctx: CoachContext): CoachReply {
+  const reply = ruleBasedAnswerRaw(question, ctx);
+  return reply.bullets ? { ...reply, bullets: reply.bullets.map(asSentence) } : reply;
+}
+
+function ruleBasedAnswerRaw(question: string, ctx: CoachContext): CoachReply {
   const detected = detectIntent(question);
   const { state, summary } = ctx;
   const held = mentionedHolding(question, summary);

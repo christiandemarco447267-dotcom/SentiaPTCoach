@@ -3,7 +3,7 @@
 // closed trade, return vs the S&P 500 (SPY), discipline notes and one coach tip.
 // The tip comes from the built-in rule-based coach; the store may later swap in an
 // AI coach tip (tipSource "ai") when the Sentia API is configured.
-import { benchmarkSeries, feedSegment } from "./benchmark";
+import { benchmarkSeries, feedSegment, marketGapSentence } from "./benchmark";
 import { BIAS_INFO, detectBiasEvents, isDecisionTrade, type BiasKey } from "./biases";
 import { localDayKey } from "./market";
 import { round2 } from "./portfolio";
@@ -130,11 +130,7 @@ export function buildWeeklyReport(state: AppState, key: string): ReportDraft {
   if (trades.length > 15) notes.push(`${trades.length} trades is a lot for one week. Fewer, better-planned trades usually win.`);
   if (perf) {
     const diff = round2(perf.returnPct - perf.spyReturnPct);
-    notes.push(
-      diff >= 0
-        ? `Ahead of the S&P 500 by ${diff.toFixed(2)} points this week.`
-        : `Behind the S&P 500 by ${Math.abs(diff).toFixed(2)} points this week.`,
-    );
+    notes.push(marketGapSentence(diff, "this week"));
   } else {
     notes.push("Not enough price history this week to compare with the S&P 500. Open Sentia a few times a week to record it.");
   }

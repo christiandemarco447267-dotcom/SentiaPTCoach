@@ -113,6 +113,8 @@ export function Landing() {
                 <img
                   className="inside-shot"
                   src={assetPath(`/inside/${img}.webp`)}
+                  srcSet={`${assetPath(`/inside/${img}-400.webp`)} 400w, ${assetPath(`/inside/${img}-600.webp`)} 600w, ${assetPath(`/inside/${img}.webp`)} 800w`}
+                  sizes="(max-width: 700px) calc(100vw - 48px), 360px"
                   alt={`Sentia screen: ${title}`}
                   width={800}
                   height={600}

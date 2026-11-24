@@ -160,15 +160,47 @@ export function parseSearchResponse(body: unknown): SymbolEntry[] {
 }
 
 let remoteUnavailable = false;
+let remoteSupport: Promise<boolean> | null = null;
+
+/**
+ * Does the API's /health say ticker search is on? Older Workers don't list
+ * `search` at all, so anything but an explicit `search: true` means "stay local".
+ */
+export function healthAllowsSearch(body: unknown): boolean {
+  if (!body || typeof body !== "object") return false;
+  return (body as { search?: unknown }).search === true;
+}
+
+/** Ask /health once per page load; avoids a 404 in the console on Workers without /search. */
+function remoteSearchSupported(): Promise<boolean> {
+  if (!remoteSupport) {
+    remoteSupport = fetch(apiUrl("/health"), { cache: "no-store", signal: AbortSignal.timeout(5000) })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(healthAllowsSearch)
+      .catch(() => {
+        remoteSupport = null; // network blip: try again on the next search
+        return false;
+      });
+  }
+  return remoteSupport;
+}
+
+/** Tests only: forget what this page load learned about /search. */
+export function resetRemoteSearchState() {
+  remoteUnavailable = false;
+  remoteSupport = null;
+}
 
 /** Ask the Sentia API's /search (when configured). Never throws: returns [] on any problem. */
 export async function searchRemoteSymbols(query: string, signal?: AbortSignal): Promise<SymbolEntry[]> {
   const q = query.trim();
   if (!apiConfigured() || remoteUnavailable || q.length < 2 || q.length > 30) return [];
   try {
+    if (!(await remoteSearchSupported())) return [];
+    if (signal?.aborted) return [];
     const res = await fetch(apiUrl(`/search?q=${encodeURIComponent(q)}`), { cache: "no-store", signal: signal ?? AbortSignal.timeout(5000) });
     if (res.status === 404 || res.status === 503) {
-      remoteUnavailable = true; // older Worker without /search, or no market-data key: stay local this session
+      remoteUnavailable = true; // search went away or lost its market-data key: stay local this session
       return [];
     }
     if (!res.ok) return [];

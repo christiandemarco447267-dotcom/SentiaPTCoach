@@ -148,7 +148,7 @@ export function disciplineScore(state: AppState, summary: PortfolioSummary, now:
     points: r1(20 * sizingRatio),
     max: 20,
     detail: n
-      ? `Largest position: ${largest.symbol} at ${formatPercent(largest.pct, false, 0)} of the portfolio${oversized ? ` (${oversized} above ${cap}%)` : ""}.`
+      ? `Largest position: ${largest.symbol} at ${formatPercent(largest.pct, false, largest.pct > cap && largest.pct < cap + 1 ? 1 : 0)} of the portfolio${oversized ? ` (${oversized} above ${cap}%)` : ""}.`
       : "No positions to size yet.",
     tip: `Keep any single position at or below about ${cap}% of your portfolio.`,
   });

@@ -442,6 +442,18 @@ export function freshStartCash(state: AppState): number {
   return dep ? dep.amount : 25_000;
 }
 
+/**
+ * The cash Start fresh offers, read from the live account: today's total value
+ * (cash + holdings at current prices), rounded to whole dollars, so the account
+ * keeps its size. Falls back to the opening deposit when no live total is known.
+ */
+export function freshStartAmount(state: AppState, accountTotal?: number): number {
+  if (accountTotal !== undefined && Number.isFinite(accountTotal) && accountTotal >= 1) {
+    return Math.min(LIMITS.maxMoney, Math.round(accountTotal));
+  }
+  return freshStartCash(state);
+}
+
 /** Show the "this is a sample starter portfolio" banner? Only while a seeded position is still held and it wasn't dismissed. */
 export function showStarterNotice(state: AppState): boolean {
   if (state.achievements.starterNoticeDismissed) return false;

@@ -60,3 +60,17 @@ test("grades and milestones", () => {
   assert.equal(milestoneFor(89), 75);
   assert.equal(milestoneFor(100), 90);
 });
+
+test("a planned first guided buy keeps Biases avoided at full credit (starter trades never count)", () => {
+  let s = createInitialState();
+  // Guided first buy of a starter ticker, priced well above the seeded cost and on a big up day.
+  s = buy(s, { symbol: "VXUS", shares: 3, price: 70 }, "Quick Start", {
+    dayChange: 4.5,
+    plan: { why: "Diversify beyond the US", exit: "Sell if my thesis breaks", risk: 25 },
+  });
+  const result = score(s);
+  const biases = result.parts.find((p) => p.key === "biases")!;
+  assert.equal(result.bias.total, 0);
+  assert.equal(biases.points, 20);
+  assert.ok(result.score >= 60, `score ${result.score}`);
+});

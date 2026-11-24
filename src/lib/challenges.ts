@@ -1,6 +1,7 @@
 // Challenges and badges (pure; unit-tested). Progress is computed from the account;
 // a badge is recorded once a challenge is complete. "Beat the S&P this month" can be
 // earned once per calendar month (badge id "beat-spy-month:YYYY-MM").
+import { marketStanding } from "./benchmark";
 import { isDecisionTrade } from "./biases";
 import { localDayKey } from "./market";
 import { quoteMap, round2, type PortfolioSummary } from "./portfolio";
@@ -190,7 +191,7 @@ export function evaluateChallenges(state: AppState, summary: PortfolioSummary | 
         let ratio = 0;
         if (curPerf) {
           const diff = round2(curPerf.returnPct - curPerf.spyReturnPct);
-          const even = Math.abs(diff) < 0.05;
+          const even = marketStanding(diff) === "even";
           const where = even ? "even with SPY" : `${diff > 0 ? "ahead" : "behind"} by ${Math.abs(diff).toFixed(2)} pts`;
           detail = `This month: you ${formatPercent(curPerf.returnPct)} vs SPY ${formatPercent(curPerf.spyReturnPct)} (${where}), ${daysLeft} day${daysLeft === 1 ? "" : "s"} left.`;
           // The bar is the share of the month you've spent ahead of SPY so far: it only fills while you're actually ahead.

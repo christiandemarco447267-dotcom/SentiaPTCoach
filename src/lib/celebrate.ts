@@ -71,6 +71,15 @@ export function confetti(durationMs = 1600, count = 110) {
   requestAnimationFrame(frame);
 }
 
+/**
+ * Browsers block navigator.vibrate (and log a console error) until the person has
+ * tapped the page, so skip it before then. Older browsers without userActivation pass.
+ */
+export function canVibrate(nav: { vibrate?: unknown; userActivation?: { hasBeenActive?: boolean } } | undefined): boolean {
+  if (!nav || typeof nav.vibrate !== "function") return false;
+  return nav.userActivation?.hasBeenActive !== false;
+}
+
 export function haptic(pattern: number | number[] = [24, 40, 24]) {
   // In the iOS/Android app use the native Taptic/vibration engine (navigator.vibrate is absent on iOS).
   if (isNativeRuntime()) {
@@ -80,7 +89,7 @@ export function haptic(pattern: number | number[] = [24, 40, 24]) {
     return;
   }
   try {
-    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(pattern);
+    if (typeof navigator !== "undefined" && canVibrate(navigator)) navigator.vibrate(pattern);
   } catch {
     // Unsupported (e.g. iOS Safari): silently skip.
   }

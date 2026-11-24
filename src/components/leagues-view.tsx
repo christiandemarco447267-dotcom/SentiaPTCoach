@@ -63,8 +63,8 @@ function LockedState({ configured, joinCode }: { configured: boolean; joinCode: 
         </div>
       ) : (
         <span className="small dim">
-          This demo build runs without accounts (guest mode only), so leagues are unavailable here. They switch on
-          automatically when Sentia is deployed with Firebase configured.
+          Leagues need a Sentia account, and accounts aren&apos;t available on this version yet. Everything else works
+          without one, and your practice portfolio stays on this device.
         </span>
       )}
     </Panel>

@@ -1,0 +1,9 @@
+/* Publish pass (Nov 23): in-app legal footer (Settings). */
+.app-legal-footer {
+  padding: 8px 0 24px;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  padding-top: 16px;
+}
+.app-legal-footer .disclaimer {
+  margin: 0;
+}

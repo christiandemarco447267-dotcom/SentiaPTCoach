@@ -339,6 +339,8 @@ export function TradeView() {
                 type="button"
                 className={kind === option.key ? "active" : ""}
                 onClick={() => {
+                  // A price typed for one order type never carries over to another (no stale limit in a market order).
+                  if (option.key !== kind) setPrice(option.key === "market" && !liveFeed && quote ? String(quote.price) : "");
                   setKind(option.key);
                   setNotice("");
                   setError("");
@@ -652,12 +654,12 @@ function OrderRow({ order, price, onCancel }: { order: PendingOrder; price?: num
       : order.status === "rejected"
         ? `Rejected: ${order.reason ?? "could not fill"}`
         : order.status === "cancelled"
-          ? `Cancelled · ${formatRelativeDay(order.updatedAt)}`
+          ? `Canceled · ${formatRelativeDay(order.updatedAt)}`
           : `${orderCondition(order)}${price !== undefined ? ` · now ${formatCurrency(price)}` : ""}`;
   return (
     <div className="list-row">
       <span className={`pill ${STATUS_CLASS[order.status]}`} style={{ minWidth: 86, justifyContent: "center", textTransform: "capitalize" }}>
-        {order.status}
+        {order.status === "cancelled" ? "canceled" : order.status}
       </span>
       <div className="grow stack" style={{ gap: 2, minWidth: 0 }}>
         <strong>

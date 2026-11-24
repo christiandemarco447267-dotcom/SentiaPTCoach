@@ -40,6 +40,8 @@ export type KeyLike = {
   ctrlKey?: boolean;
   metaKey?: boolean;
   altKey?: boolean;
+  shiftKey?: boolean;
+  code?: string;
   repeat?: boolean;
   defaultPrevented?: boolean;
 };
@@ -92,8 +94,10 @@ export function resolveShortcut(
     // Any other key cancels the sequence (and is then treated on its own below).
   }
   if (key === "g") return { action: null, state: { pendingG: now } };
+  // "?" is Shift+/ on most layouts. Some browsers/automation report key "/" with Shift held,
+  // so Shift+/ (by key or by physical Slash key) always means help; "/" alone means search.
+  if (key === "?" || (event.shiftKey && (key === "/" || event.code === "Slash"))) return { action: { kind: "help" }, state: idle };
   if (key === "/") return { action: { kind: "search" }, state: idle };
-  if (key === "?") return { action: { kind: "help" }, state: idle };
   if (key === "b") return { action: { kind: "side", side: "buy" }, state: idle };
   if (key === "s") return { action: { kind: "side", side: "sell" }, state: idle };
   return { action: null, state: idle };

@@ -71,6 +71,11 @@ export function isDecisionTrade(tx: Transaction): boolean {
   return (tx.type === "buy" || tx.type === "sell") && tx.note !== "Opening position";
 }
 
+/** A buy placed with the full pre-trade checklist answered (why, exit plan, risk). */
+export function isPlannedBuy(tx: Transaction): boolean {
+  return tx.type === "buy" && !!tx.plan && tx.plan.why.trim().length > 0 && tx.plan.exit.trim().length > 0;
+}
+
 function chronological(transactions: Transaction[]): Transaction[] {
   return [...transactions].sort((a, b) => ms(a.createdAt) - ms(b.createdAt));
 }
@@ -135,15 +140,19 @@ export function dispositionEffect(closed: ClosedTrade[]): Disposition {
 /** Detect per-trade bias events (FOMO, revenge, panic, overtrading) across the whole ledger. */
 export function detectBiasEvents(transactions: Transaction[]): BiasEvent[] {
   const events: BiasEvent[] = [];
-  const all = chronological(transactions).filter((tx) => tx.type === "buy" || tx.type === "sell");
-  const decisions = all.filter(isDecisionTrade);
+  // Seeded starter trades are not decisions: they never count toward a flag, and
+  // their prices are not a "recent high" the user traded at.
+  const decisions = chronological(transactions).filter(isDecisionTrade);
+  const all = decisions;
   let lastOvertradingAt = -Infinity;
 
   for (const tx of decisions) {
     const t = ms(tx.createdAt);
     const sym = tx.symbol ? normalizeSymbol(tx.symbol) : undefined;
 
-    if (tx.type === "buy") {
+    if (tx.type === "buy" && isPlannedBuy(tx)) {
+      // A buy with a written plan (why, exit, risk) is a deliberate decision, not a chase or revenge trade.
+    } else if (tx.type === "buy") {
       // FOMO: big up day…
       if (tx.dayChange !== undefined && tx.dayChange >= BIAS_RULES.fomoDayChangePct) {
         events.push({ bias: "fomo", txId: tx.id, at: tx.createdAt, symbol: sym, detail: `Bought ${sym} while it was up ${formatPercent(tx.dayChange, false, 1)} on the day.` });

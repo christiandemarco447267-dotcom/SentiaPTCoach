@@ -213,8 +213,8 @@ function HoldingsCard({ className }: { className?: string }) {
       ) : (
         <div className="list">
           {rows.map((h) => (
-            <Link key={h.symbol} href={`/app/trade?symbol=${encodeURIComponent(h.symbol)}`} className="list-row" aria-label={`${h.symbol}: ${formatCurrency(h.marketValue)}, ${formatPercent(h.gainPercent, true)}`}>
-              <span className="sym-badge">{h.symbol.slice(0, 4)}</span>
+            <Link key={h.symbol} href={`/app/trade?symbol=${encodeURIComponent(h.symbol)}`} className="list-row">
+              <span className="sym-badge" aria-hidden="true">{h.symbol.slice(0, 4)}</span>
               <div className="grow stack" style={{ gap: 2, minWidth: 0 }}>
                 <strong>{h.symbol}</strong>
                 <span className="small muted">{formatShareCount(h.shares)}</span>

@@ -2833,3 +2833,110 @@ html[data-theme="light"] ::selection {
     background-color: rgba(255, 255, 255, 0.96);
   }
 }
+
+/* ---------- v6: "pick up to 3" setup questions ---------- */
+.choice-multi {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  width: 100%;
+}
+.choice-multi .choice-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.choice-box {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.choice-multi.selected .choice-box {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.choice-multi.is-locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.choice-multi.is-locked:hover {
+  border-color: var(--border);
+}
+.choice-multi:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+}
+.choice-compact {
+  padding: 10px 12px;
+}
+.pick-meta {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pick-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted, inherit);
+}
+.pick-count-full {
+  color: var(--primary);
+}
+.level-card {
+  border: 1px solid rgba(167, 139, 250, 0.45);
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(124, 58, 237, 0.14);
+}
+.level-meter {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.level-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
+.level-reasons {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.6;
+}
+html[data-theme="light"] .choice-box {
+  background: #fff;
+}
+html[data-theme="light"] .level-card {
+  background: rgba(124, 58, 237, 0.08);
+}
+@media (prefers-reduced-motion: reduce) {
+  .choice-box {
+    transition: none;
+  }
+}
+.field .label-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  min-height: 44px;
+}

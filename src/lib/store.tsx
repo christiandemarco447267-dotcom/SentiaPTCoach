@@ -510,7 +510,7 @@ export type AppApi = {
     forgetLeague: (code: string) => void;
     // v5
     reviewTrade: (txId: string, input: { rating: number; lesson?: string }) => void;
-    setGoal: (goal: AppState["profile"]["goal"]) => void;
+    setGoals: (goals: readonly AppState["profile"]["goals"][number][]) => void;
     awardBadges: (ids: string[]) => void;
     saveReport: (report: WeeklyReport) => void;
     /** Swap a report's tip (e.g. for the AI coach's), only if the report still exists. */
@@ -700,7 +700,7 @@ export function AppProvider({ mode: storageMode, children }: { mode: StorageMode
       rememberLeague: (code) => mutate((s) => mutations.rememberLeague(s, code)),
       forgetLeague: (code) => mutate((s) => mutations.forgetLeague(s, code)),
       reviewTrade: (txId, input) => mutate((s) => mutations.reviewTrade(s, txId, input)),
-      setGoal: (goal) => mutate((s) => mutations.setPracticeGoal(s, goal)),
+      setGoals: (goals) => mutate((s) => mutations.setPracticeGoals(s, goals)),
       awardBadges: (ids) => mutate((s) => challengeOps.awardBadges(s, ids)),
       saveReport: (report) => mutate((s) => mutations.commit({ ...s, reports: upsertReport(s.reports, report) })),
       setReportTip: (week, tip, source) =>

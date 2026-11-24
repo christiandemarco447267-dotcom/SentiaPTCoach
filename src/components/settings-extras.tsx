@@ -11,7 +11,7 @@ import { backgroundPushConfigured, disableBackgroundPush, enableBackgroundPush, 
 import { useApp } from "@/lib/store";
 import { THEME_PREFS, type ThemePref } from "@/lib/theme";
 import { useTheme } from "@/lib/use-theme";
-import type { PracticeGoal } from "@/lib/types";
+import { MultiChoice } from "./multi-choice";
 import { Panel } from "./ui";
 
 function Switch({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
@@ -66,22 +66,12 @@ export function HabitSettings() {
         <Switch checked={state.settings.preTradeChecklist} label="Pre-trade checklist" onChange={(v) => actions.updateSettings({ preTradeChecklist: v })} />
       </div>
       <div className="field">
-        <label htmlFor="settings-goal">Practice goal</label>
-        <select
-          id="settings-goal"
-          className="select"
-          value={state.profile.goal ?? ""}
-          onChange={(e) => actions.setGoal((e.target.value || null) as PracticeGoal | null)}
-        >
-          <option value="">No goal set</option>
-          {GOAL_OPTIONS.map((g) => (
-            <option key={g.value} value={g.value}>
-              {g.label}
-            </option>
-          ))}
-        </select>
+        <span id="settings-goals-label" className="label-text">
+          Practice goals
+        </span>
+        <MultiChoice options={GOAL_OPTIONS} selected={state.profile.goals} onChange={(next) => actions.setGoals(next)} labelledBy="settings-goals-label" compact />
         <span className="small dim">
-          Pins a matching <Link href="/app/challenges" className="text-link">challenge</Link> and shapes your weekly report tip.
+          Pins matching <Link href="/app/challenges" className="text-link">challenges</Link> and shapes your weekly report tip.
         </span>
       </div>
     </Panel>

@@ -10,7 +10,7 @@ import { csvCell, holdingsCsv, transactionsCsv } from "./csv";
 import { positionSize } from "./position-size";
 import { summarizePortfolio } from "./portfolio";
 import { buildWeeklyReport, coachTip, dueReportWeek, gradeLetter, periodReturns, reportPrompt, upsertReport, weekKey, weekRange } from "./report-card";
-import { buy, cleanPlan, createInitialState, importStateJson, migrateUnknown, reviewTrade, sell, setPracticeGoal } from "./storage";
+import { buy, cleanPlan, createInitialState, importStateJson, migrateUnknown, reviewTrade, sell, setPracticeGoals } from "./storage";
 import { parseSearchResponse, searchSymbols, SYMBOL_DIRECTORY } from "./symbols";
 import { parseThemePref, resolveTheme, THEME_INIT_SCRIPT } from "./theme";
 import { AppStateSchema, DEFAULT_SETTINGS, SCHEMA_VERSION, type AppState, type PerfSnapshot, type Quote, type WeeklyReport } from "./types";
@@ -27,18 +27,18 @@ function valid(s: AppState) {
 
 // ---- schema v5 + migration ----------------------------------------------------------
 
-test("schema is v5 and a fresh workspace has the new defaults", () => {
+test("schema is v6 and a fresh workspace has the new defaults", () => {
   const s = createInitialState();
-  assert.equal(SCHEMA_VERSION, 5);
+  assert.equal(SCHEMA_VERSION, 6);
   assert.deepEqual(s.settings, { ...DEFAULT_SETTINGS });
   assert.equal(s.settings.preTradeChecklist, true);
   assert.equal(s.settings.alertNotifications, false);
-  assert.equal(s.profile.goal, null);
+  assert.deepEqual(s.profile.goals, []);
   assert.deepEqual([s.reports, s.badges, s.dips], [[], [], []]);
   valid(s);
 });
 
-test("a saved v4 account upgrades cleanly to v5, keeping everything it had", () => {
+test("a saved v4 account upgrades cleanly to v6, keeping everything it had", () => {
   const fresh = createInitialState();
   const { reports, badges, dips, ...rest } = fresh;
   void reports;
@@ -55,19 +55,19 @@ test("a saved v4 account upgrades cleanly to v5, keeping everything it had", () 
   );
   const migrated = migrateUnknown(v4);
   assert.ok(migrated);
-  assert.equal(migrated.version, 5);
+  assert.equal(migrated.version, 6);
   assert.deepEqual(migrated.settings, { celebrations: false, haptics: true, preTradeChecklist: true, alertNotifications: false });
-  assert.deepEqual(migrated.profile, { experience: "some", focus: "discipline", avatarColor: "#2563eb", goal: null });
+  assert.deepEqual(migrated.profile, { experiences: ["some"], focuses: ["discipline"], avatarColor: "#2563eb", goals: [] });
   assert.deepEqual(migrated.leagues, ["K7Q2MX"]);
   assert.equal(migrated.transactions.length, fresh.transactions.length);
   assert.deepEqual([migrated.reports, migrated.badges, migrated.dips], [[], [], []]);
   // Same path as backup import and the Firestore loader.
-  assert.equal(importStateJson(JSON.stringify(v4)).version, 5);
+  assert.equal(importStateJson(JSON.stringify(v4)).version, 6);
 });
 
-test("a v1 → v5 chain and garbage are both handled", () => {
+test("a v1 → v6 chain and garbage are both handled", () => {
   const v1 = { version: 1, cash: 10, holdings: [], theses: [], createdAt: iso(2025, 1, 1), updatedAt: iso(2025, 1, 1) };
-  assert.equal(migrateUnknown(v1)?.version, 5);
+  assert.equal(migrateUnknown(v1)?.version, 6);
   assert.equal(migrateUnknown({ version: 99 }), null);
   assert.equal(migrateUnknown("nope"), null);
 });
@@ -162,7 +162,7 @@ test("a quiet week still gets a fair report, and grades map to letters", () => {
   assert.equal(r.returnPct, null);
   assert.ok(r.notes[0].startsWith("No trades this week"));
   assert.deepEqual([95, 85, 75, 65, 10].map(gradeLetter), ["A", "B", "C", "D", "F"]);
-  assert.match(coachTip({ buys: 0, planned: 0, sells: 0, reviewed: 0, biases: ["fomo"], perf: null, trades: 3, goal: null }), /^Next week:/);
+  assert.match(coachTip({ buys: 0, planned: 0, sells: 0, reviewed: 0, biases: ["fomo"], perf: null, trades: 3, goals: [] }), /^Next week:/);
 });
 
 test("the report for last week is due on Monday, once, and only for accounts that existed then", () => {
@@ -241,8 +241,8 @@ test("holding through a 5% dip back to cost earns Steady Hands; selling clears t
 });
 
 test("the practice goal is saved on the profile", () => {
-  const s = setPracticeGoal(createInitialState(), "diversify");
-  assert.equal(s.profile.goal, "diversify");
+  const s = setPracticeGoals(createInitialState(), ["diversify"]);
+  assert.deepEqual(s.profile.goals, ["diversify"]);
   valid(s);
 });
 

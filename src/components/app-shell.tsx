@@ -33,7 +33,8 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { AppProvider, retryCloudLoad, useApp } from "@/lib/store";
 import { AuthGate } from "./auth/auth-gate";
 import { assetPath } from "@/lib/asset";
-import { experienceLabel, initialsOf, avatarInk } from "@/lib/profile";
+import { initialsOf, avatarInk } from "@/lib/profile";
+import { assessState } from "@/lib/experience";
 import { DemoPricesBadge, Loading, ToastHost } from "./ui";
 import { FeedbackButton } from "./feedback-sheet";
 import { FoldWatcher } from "./fold-watcher";
@@ -121,7 +122,8 @@ function ProfileChip({ onNavigate }: { onNavigate?: () => void }) {
   const name = state?.profileName ?? "";
   const initials = initialsOf(name);
   const color = state?.profile.avatarColor || "#0d9488";
-  const subtitle = experienceLabel(state?.profile.experience ?? null) || "Tap to personalize";
+  const level = state ? assessState(state) : null;
+  const subtitle = level?.answered ? `${level.label} level` : "Tap to personalize";
   return (
     <Link href="/app/settings" onClick={onNavigate} className="profile-chip" style={{ marginTop: onNavigate ? "auto" : 0 }}>
       <span className="avatar" style={{ background: color, color: avatarInk(color) }}>

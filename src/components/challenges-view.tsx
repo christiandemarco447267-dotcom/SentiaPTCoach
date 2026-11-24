@@ -55,24 +55,27 @@ export function ChallengesView() {
   const [mountedAt] = useState(() => Date.now());
   if (!ready || !state) return <Loading />;
 
-  const goal = state.profile.goal;
-  const featured = goal ? CHALLENGES.find((c) => c.goal === goal)?.id : undefined;
-  const ordered = [...progress].sort((a, b) => Number(b.def.id === featured) - Number(a.def.id === featured));
+  const goals = state.profile.goals;
+  // v6: every picked goal pins its challenge, in the order the goals were picked.
+  const featured: string[] = goals.flatMap((g) => CHALLENGES.filter((c) => c.goal === g).slice(0, 1).map((c) => c.id as string));
+  const rank = (id: string) => (featured.includes(id) ? featured.indexOf(id) : featured.length);
+  const ordered = [...progress].sort((a, b) => rank(a.def.id) - rank(b.def.id));
   const badges = [...state.badges].sort((a, b) => (a.earnedAt < b.earnedAt ? 1 : -1));
 
   return (
     <div className="stack gap-lg animate-in">
       <PageHeader title="Challenges" subtitle="Small goals that build investing habits. Finish one to earn its badge." />
 
-      {goal ? (
+      {goals.length ? (
         <Panel className="row gap-sm wrap">
           <Target size={18} />
           <span>
-            Your goal: <strong>{goalInfo(goal).label}</strong>. Its challenge is pinned first.
+            {goals.length > 1 ? "Your goals" : "Your goal"}: <strong>{goals.map((g) => goalInfo(g).label).join(", ")}</strong>.{" "}
+            {goals.length > 1 ? "Their challenges are pinned first." : "Its challenge is pinned first."}
           </span>
           <span className="grow" />
           <Link href="/app/settings" className="small muted tap-link">
-            Change goal
+            {goals.length > 1 ? "Change goals" : "Change goal"}
           </Link>
         </Panel>
       ) : null}
@@ -83,7 +86,7 @@ export function ChallengesView() {
           const link = LINKS[p.def.id];
           const repeat = p.def.id === "beat-spy-month";
           return (
-            <Panel key={p.def.id} strong={p.def.id === featured} className="stack gap-sm challenge-card">
+            <Panel key={p.def.id} strong={featured.includes(p.def.id)} className="stack gap-sm challenge-card">
               <div className="row between gap-sm">
                 <span className="row gap-sm">
                   <span className={`challenge-icon ${p.done ? "done" : ""}`} aria-hidden="true">
@@ -91,7 +94,7 @@ export function ChallengesView() {
                   </span>
                   <strong>{p.def.title}</strong>
                 </span>
-                {p.def.id === featured ? <span className="pill pill-primary pill-compact">Your goal</span> : null}
+                {featured.includes(p.def.id) ? <span className="pill pill-primary pill-compact">Your goal</span> : null}
               </div>
               <span className="small muted">{p.def.description}</span>
               <div

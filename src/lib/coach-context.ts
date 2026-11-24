@@ -5,8 +5,11 @@
 import { benchmarkStats, feedSegment } from "./benchmark";
 import { BIAS_INFO, BIAS_KEYS, biasReport, isDecisionTrade } from "./biases";
 import { disciplineScore } from "./discipline";
+import { assessState, TIER_TONE } from "./experience";
 import { formatCurrency, formatPercent, formatSignedCurrency } from "./format";
+import { goalInfo } from "./goals";
 import { MOOD_INFO } from "./moods";
+import { focusLabels } from "./profile";
 import type { PortfolioSummary } from "./portfolio";
 import type { AppState, Quote } from "./types";
 
@@ -49,6 +52,16 @@ export function buildCoachContext({ state, summary, quotes, now = Date.now() }: 
   const feed = quotes.some((q) => q.source !== "demo") ? "live" : "demo";
   lines.push(`Prices: ${feed === "live" ? "real market quotes (live or delayed)" : "DEMO — simulated prices, not real market data"}`);
   lines.push(`As of: ${day(new Date(now).toISOString())}`);
+
+  // ---- learner (v6: derived from the multi-select setup answers + practice history)
+  const level = assessState(state);
+  lines.push("", "LEARNER");
+  lines.push(
+    `Experience level: ${level.label} (${level.score}/100${level.answered ? ", from setup answers and practice history" : ", setup not answered yet"})`,
+  );
+  lines.push(`Explain at this level: ${TIER_TONE[level.tier]}`);
+  lines.push(`Practice goals: ${state.profile.goals.length ? state.profile.goals.map((g) => goalInfo(g).label).join(", ") : NA}`);
+  lines.push(`Focus: ${focusLabels(state.profile.focuses) || NA}`);
 
   // ---- account
   lines.push("", "ACCOUNT");

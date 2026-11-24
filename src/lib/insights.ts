@@ -36,17 +36,23 @@ export function buildInsights(state: AppState, summary: PortfolioSummary): Insig
     });
   }
 
-  // 2. Concentration
+  // 2. Concentration — measured against invested money (stocks/funds held), with the
+  // share of the total account (including cash) alongside so it matches the sizing check.
   const top = summary.holdings[0];
   if (top && summary.investments > 0) {
     const weight = (top.marketValue / summary.investments) * 100;
+    const ofTotal = summary.total > 0 ? (top.marketValue / summary.total) * 100 : weight;
+    const basis =
+      Math.round(ofTotal) === Math.round(weight)
+        ? "of your invested money"
+        : `of your invested money (${formatPercent(ofTotal, false, 0)} of your total portfolio, including cash)`;
     insights.push({
       id: "concentration",
       title: "Concentration check",
       body:
         weight >= 40
-          ? `${top.symbol} is ${formatPercent(weight, false, 0)} of your invested value. Consider trimming or diversifying to reduce single-name risk.`
-          : `Your largest position (${top.symbol}) is ${formatPercent(weight, false, 0)} of invested value — a reasonably balanced book.`,
+          ? `${top.symbol} is ${formatPercent(weight, false, 0)} ${basis}. Consider trimming or diversifying to reduce single-name risk.`
+          : `Your largest position (${top.symbol}) is ${formatPercent(weight, false, 0)} ${basis} — a reasonably balanced book.`,
       tone: weight >= 40 ? "watch" : "good",
     });
   }

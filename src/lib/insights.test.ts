@@ -39,3 +39,21 @@ test("buildInsights prompts to start when there are no holdings", () => {
   const insights = buildInsights(state, summary);
   assert.ok(insights.some((i) => i.id === "start"));
 });
+
+test("concentration and sizing state their basis so the two numbers agree", async () => {
+  const { disciplineScore } = await import("./discipline");
+  // Mostly cash, one big position: % of invested money differs from % of the total account.
+  const base = createInitialState();
+  const state = buy({ ...base, holdings: [], transactions: [], cash: 10_000 }, { symbol: "VTI", shares: 20, price: 100 });
+  const withVxus = buy(state, { symbol: "VXUS", shares: 10, price: 100 });
+  const summary = summarizePortfolio(withVxus, []);
+  const vti = summary.holdings.find((h) => h.symbol === "VTI");
+  assert.ok(vti && summary.holdings[0].symbol === "VTI");
+  const ofInvested = Math.round((vti.marketValue / summary.investments) * 100);
+  const ofTotal = Math.round((vti.marketValue / summary.total) * 100);
+  assert.notEqual(ofInvested, ofTotal);
+  const body = buildInsights(withVxus, summary).find((i) => i.id === "concentration")?.body ?? "";
+  assert.match(body, new RegExp(`${ofInvested}% of your invested money \\(${ofTotal}% of your total portfolio, including cash\\)`));
+  const sizing = disciplineScore(withVxus, summary).parts.find((p) => p.key === "sizing")?.detail ?? "";
+  assert.match(sizing, new RegExp(`VTI at ${ofTotal}% of your total portfolio \\(including cash\\)`));
+});

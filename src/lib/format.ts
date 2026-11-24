@@ -34,6 +34,32 @@ export function formatCurrency(value: number, compact = false): string {
   return value < 0 && body !== "$0.00" && body !== "$0" ? `${MINUS}${body}` : body;
 }
 
+/** Whole-dollar money with no cents: "$47,079". */
+export function formatWholeDollars(value: number): string {
+  if (!Number.isFinite(value)) return "$0";
+  const body = `$${Math.round(Math.abs(value)).toLocaleString("en-US")}`;
+  return value < 0 && body !== "$0" ? `${MINUS}${body}` : body;
+}
+
+/**
+ * Honest wording for the Start fresh amount: whole dollars, and "about … (rounded)"
+ * when it was rounded from a live total with cents.
+ */
+export function freshStartWording(amount: number, accountTotal?: number): { cash: string; rounded: boolean; phrase: string } {
+  const cash = formatWholeDollars(amount);
+  const rounded = accountTotal !== undefined && Number.isFinite(accountTotal) && Math.abs(accountTotal - amount) >= 0.005;
+  return {
+    cash,
+    rounded,
+    phrase:
+      accountTotal === undefined || !Number.isFinite(accountTotal)
+        ? `${cash} in cash`
+        : rounded
+          ? `about ${cash} in cash (today's account value, rounded)`
+          : `${cash} in cash (today's account value)`,
+  };
+}
+
 /** Signed money: "+$12.50", "−$3.00", "$0.00". */
 export function formatSignedCurrency(value: number): string {
   if (!Number.isFinite(value)) return "$0.00";

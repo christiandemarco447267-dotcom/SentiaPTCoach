@@ -664,3 +664,22 @@ html[data-fold="v"] .trade-layout .trade-sizer {
 html[data-fold="h"] .coach-split {
   padding: 16px;
 }
+
+/* Portfolio "Link a thesis": wide enough on desktop to read the thesis, never overflows
+   a 360px phone; the full linked thesis wraps on the line below. */
+.thesis-select {
+  flex: 1 1 220px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+@media (min-width: 768px) {
+  .thesis-select {
+    max-width: 460px;
+  }
+}
+.thesis-full {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}

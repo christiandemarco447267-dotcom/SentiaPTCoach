@@ -152,6 +152,8 @@ export function TradeView() {
           price: execPrice,
           dayChange: quote?.changePercent,
           avgCost: held?.avgCost,
+          // Buys go through the pre-trade checklist when it's on; a planned buy is never a FOMO/revenge flag.
+          checklistPending: mode === "buy" && state.settings.preTradeChecklist,
         })
       : [];
 
@@ -469,7 +471,7 @@ export function TradeView() {
                   <div key={n.bias} className="nudge small" role="note">
                     <Lightbulb size={16} />
                     <span>
-                      <strong>Bias check: {n.title}.</strong> {n.body}
+                      <strong>{n.soft ? `Heads up (${n.title.toLowerCase()} check):` : `Bias check: ${n.title}.`}</strong> {n.body}
                     </span>
                   </div>
                 ))}

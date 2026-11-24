@@ -130,7 +130,7 @@ function CoachChat({ scope }: { scope: string }) {
         }
       />
 
-      <Panel strong className="stack gap-md">
+      <Panel strong className="stack gap-md fold-split fold-content-a coach-split">
         <div className="row between wrap gap-sm">
           <strong className="row gap-sm">
             <MessageCircle size={18} /> Coach
@@ -151,7 +151,7 @@ function CoachChat({ scope }: { scope: string }) {
             <History size={13} /> Picked up where you left off. Your chat is saved on this device only.
           </p>
         ) : null}
-        <div className="chat-log" ref={logRef} aria-live="polite">
+        <div className="chat-log fold-pane-a" ref={logRef} aria-live="polite">
           {messages.map((m) => (
             <div key={m.id} className={`bubble ${m.role === "user" ? "bubble-user" : "bubble-coach"}`} aria-busy={m.streaming || undefined}>
               {m.mode ? (
@@ -180,6 +180,7 @@ function CoachChat({ scope }: { scope: string }) {
             </div>
           ))}
         </div>
+        <div className="stack gap-md fold-pane-b">
         <div className="row wrap gap-sm" aria-label="Suggested questions">
           {SUGGESTED_QUESTIONS.map((q) => (
             <button key={q} type="button" className="chip" onClick={() => void ask(q, "chip")} disabled={busy}>
@@ -206,6 +207,7 @@ function CoachChat({ scope }: { scope: string }) {
             <Send size={16} />
           </button>
         </form>
+        </div>
       </Panel>
 
       <p className="disclaimer">

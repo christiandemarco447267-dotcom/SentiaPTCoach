@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ClipboardCheck, Download, NotebookPen, Star } from "lucide-react";
+import { ClipboardCheck, ClipboardList, Download, NotebookPen, Star } from "lucide-react";
 import { isDecisionTrade } from "@/lib/biases";
 import { downloadText, transactionsCsv } from "@/lib/csv";
 import { formatCurrency, formatNumber, formatRelativeDay } from "@/lib/format";
@@ -106,7 +106,7 @@ export function JournalView() {
               <Star size={17} /> Reviewed trades
             </strong>
             {reviewed.length === 0 ? (
-              <EmptyState title="No reviews yet" hint="After you sell, Sentia asks you to rate the trade and note one lesson." />
+              <EmptyState icon={<NotebookPen size={24} />} title="Your journal is empty" hint="After you sell, Sentia asks you to rate the trade and note one lesson. Your reviews collect here." action={{ label: "Go to Trade", href: "/app/trade" }} />
             ) : (
               <div className="list">
                 {reviewed.map((t) => (
@@ -140,7 +140,7 @@ export function JournalView() {
             <ClipboardCheck size={17} /> Plans saved with your buys
           </strong>
           {planned.length === 0 ? (
-            <EmptyState title="No plans yet" hint="Before a buy, the pre-trade checklist asks why, your exit plan and your risk. Answers show up here." />
+            <EmptyState icon={<ClipboardList size={24} />} title="No plans yet" hint="Before a buy, the pre-trade checklist asks why, your exit plan and your risk. Answers show up here." action={{ label: "Plan a trade", href: "/app/trade" }} />
           ) : (
             <div className="list">
               {planned.map((t) => (

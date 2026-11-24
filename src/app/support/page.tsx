@@ -62,7 +62,7 @@ export default function SupportPage() {
       <section className="stack gap-sm">
         <h2>Policies</h2>
         <p className="muted">
-          <Link href="/privacy">Privacy policy</Link> · <Link href="/terms">Terms of use</Link>
+          <Link href="/privacy" className="footer-link">Privacy policy</Link> · <Link href="/terms" className="footer-link">Terms of use</Link>
         </p>
       </section>
     </LegalPage>

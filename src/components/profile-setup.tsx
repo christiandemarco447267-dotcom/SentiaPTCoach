@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/lib/store";
-import { AVATAR_COLORS, EXPERIENCE_OPTIONS, FOCUS_OPTIONS, initialsOf } from "@/lib/profile";
+import { AVATAR_COLORS, EXPERIENCE_OPTIONS, FOCUS_OPTIONS, initialsOf, avatarInk } from "@/lib/profile";
 import type { ProfileInput } from "@/lib/storage";
 import type { Profile } from "@/lib/types";
 import { SIM_DISCLAIMER } from "@/lib/site";
@@ -84,7 +84,7 @@ function ProfileSetupDialog({
         {step === 0 ? (
           <div className="stack gap-md">
             <div className="row gap-md" style={{ alignItems: "center" }}>
-              <span className="avatar avatar-lg" style={{ background: avatarColor }}>
+              <span className="avatar avatar-lg" style={{ background: avatarColor, color: avatarInk(avatarColor) }}>
                 {initials}
               </span>
               <div className="stack" style={{ gap: 2 }}>

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Radar, Smile } from "lucide-react";
 import { BIAS_INFO, BIAS_KEYS } from "@/lib/biases";
-import { formatDate, formatSignedCurrency } from "@/lib/format";
+import { formatDate, formatSignedCurrency, formatPercent } from "@/lib/format";
 import { moodStats, type MoodBasis } from "@/lib/moods";
 import { useApp } from "@/lib/store";
 import { useDiscipline } from "./discipline-card";
@@ -105,7 +105,7 @@ export function MoodPanel() {
                   </td>
                   <td>{m.trades}</td>
                   <td>{m.closed}</td>
-                  <td>{m.winRate === null ? "—" : `${m.winRate.toFixed(0)}%`}</td>
+                  <td>{m.winRate === null ? "—" : formatPercent(m.winRate, false, 0)}</td>
                   <td style={{ textAlign: "right" }} className={m.realized > 0 ? "gain" : m.realized < 0 ? "loss" : ""}>
                     {m.closed ? formatSignedCurrency(m.realized) : "—"}
                   </td>

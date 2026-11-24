@@ -5,12 +5,15 @@ import { assetPath } from "@/lib/asset";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL, siteUrl } from "@/lib/site";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
+import "./polish.css";
 
 const dancingScript = Dancing_Script({
   variable: "--font-brand",
   subsets: ["latin"],
   weight: ["600", "700"],
   display: "swap",
+  // Brand wordmark only: not worth a high-priority preload on every page.
+  preload: false,
 });
 
 export const viewport: Viewport = {
@@ -56,8 +59,15 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
-// Static 1200x630 share image (regenerate with `npm run og:image`).
-const OG_IMAGE = { url: siteUrl("/og-image.png"), width: 1200, height: 630, alt: SITE_TITLE, type: "image/png" };
+// Static 1200x630 share image: real app screens (report card, journal, coach) + the feature list.
+// "?v=" busts social-network caches when the image changes.
+const OG_IMAGE = {
+  url: siteUrl("/og-image.png?v=2026-11"),
+  width: 1200,
+  height: 630,
+  alt: `${SITE_NAME}: practice investing with a real process. Guided session, journal and reviews, challenges and badges, weekly report card, AI coach, price alerts, light and dark themes.`,
+  type: "image/png",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

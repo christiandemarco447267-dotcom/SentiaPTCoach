@@ -2,6 +2,7 @@
 // canvas renderer for a glassy 1080×1080 PNG (browser only).
 import { closedTrades } from "./biases";
 import type { AppState } from "./types";
+import { MINUS, formatCurrency, formatPercent } from "./format";
 
 export type TradeCardData = {
   txId: string;
@@ -167,7 +168,7 @@ export function drawTradeCard(
 
   // Result.
   ctx.font = `800 168px ${font}`;
-  const resultText = `${gain ? "+" : "−"}${Math.abs(data.resultPct).toFixed(1)}%`;
+  const resultText = `${gain ? "+" : MINUS}${formatPercent(Math.abs(data.resultPct), false, 1)}`;
   const rg = ctx.createLinearGradient(150, 600, 750, 760);
   rg.addColorStop(0, gain ? "#6ee7b7" : "#fda4af");
   rg.addColorStop(1, gain ? "#34d399" : "#fb7185");
@@ -177,7 +178,7 @@ export function drawTradeCard(
   ctx.font = `500 34px ${font}`;
   ctx.fillStyle = "#b9b5d3";
   const dollars = opts.showDollars
-    ? `${data.resultDollars >= 0 ? "+" : "−"}$${Math.abs(data.resultDollars).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} realized`
+    ? `${data.resultDollars >= 0 ? "+" : MINUS}${formatCurrency(Math.abs(data.resultDollars))} realized`
     : "Realized result";
   ctx.fillText(dollars, 150, 810);
 

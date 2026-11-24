@@ -9,7 +9,7 @@ import { useAnalyticsConsent } from "./pilot-prompts";
 import { celebrate, prefersReducedMotion } from "@/lib/celebrate";
 import { useAuth } from "@/lib/auth";
 import { localDayKey } from "@/lib/market";
-import { experienceLabel, focusLabel, initialsOf } from "@/lib/profile";
+import { experienceLabel, focusLabel, initialsOf, avatarInk } from "@/lib/profile";
 import { useApp } from "@/lib/store";
 import { Loading, Panel, PageHeader } from "./ui";
 import { AccountSecurity } from "./auth/account-security";
@@ -117,7 +117,7 @@ export function SettingsView() {
         </div>
 
         <div className="row gap-md" style={{ alignItems: "center" }}>
-          <span className="avatar avatar-lg" style={{ background: state.profile.avatarColor || "#0d9488" }}>
+          <span className="avatar avatar-lg" style={{ background: state.profile.avatarColor || "#0d9488", color: avatarInk(state.profile.avatarColor || "#0d9488") }}>
             {initialsOf(state.profileName) || "?"}
           </span>
           <div className="stack" style={{ gap: 2, minWidth: 0 }}>

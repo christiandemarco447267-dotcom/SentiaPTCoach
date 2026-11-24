@@ -1,14 +1,24 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ArrowLeftRight, ArrowRight, ArrowUpRight, History, Lightbulb, LineChart, MessageCircle, PieChart, RefreshCw } from "lucide-react";
-import { formatCurrency, formatPercent, formatSignedCurrency } from "@/lib/format";
+import { ArrowLeftRight, ArrowRight, ArrowUpRight, Briefcase, History, Lightbulb, LineChart, MessageCircle, PieChart, RefreshCw } from "lucide-react";
+import { formatCurrency, formatPercent, formatShareCount, formatSignedCurrency } from "@/lib/format";
 import { realizedPnl } from "@/lib/portfolio";
 import { useApp } from "@/lib/store";
-import { BenchmarkCard } from "./benchmark-chart";
 import { DisciplineCard } from "./discipline-card";
-import { Loading, Panel } from "./ui";
+import { ChartSkeleton, EmptyState, Loading, Panel, PriceSkeleton, RowsSkeleton } from "./ui";
+
+// The chart code loads after the page is interactive; a same-height shimmer holds its place.
+const BenchmarkCard = dynamic(() => import("./benchmark-chart").then((m) => m.BenchmarkCard), {
+  ssr: false,
+  loading: () => (
+    <div className="panel stack gap-sm">
+      <ChartSkeleton height={176} />
+    </div>
+  ),
+});
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -90,7 +100,7 @@ export function DashboardHome() {
       <Panel strong className="panel-pad-lg hero-balance holo stack gap-md">
         <span className="eyebrow">Total portfolio value</span>
         <div className="row between wrap gap-md">
-          <span className="value-xl">{formatCurrency(summary.total)}</span>
+          <span className="value-xl">{market.status === "loading" && state.holdings.length ? <PriceSkeleton width="7em" /> : formatCurrency(summary.total)}</span>
           <span className={`badge ${summary.gain >= 0 ? "badge-gain" : "badge-loss"}`}>
             {summary.gain >= 0 ? <ArrowUpRight size={16} /> : null}
             {formatSignedCurrency(summary.gain)} ({formatPercent(summary.gainPercent, true)})
@@ -108,7 +118,12 @@ export function DashboardHome() {
 
       <DisciplineCard compact />
 
-      <BenchmarkCard />
+      <div className="grid grid-2 fold-split">
+        <HoldingsCard className="fold-pane-a" />
+        <div className="fold-pane-b" style={{ minWidth: 0 }}>
+          <BenchmarkCard />
+        </div>
+      </div>
 
       <div className="grid grid-2">
         <QuickLink
@@ -163,6 +178,53 @@ export function DashboardHome() {
         save.
       </p>
     </div>
+  );
+}
+
+/** Top holdings at a glance (sits beside the benchmark chart; on a spanned foldable, one per pane). */
+function HoldingsCard({ className }: { className?: string }) {
+  const { summary, market } = useApp();
+  const loading = market.status === "loading";
+  const rows = summary ? [...summary.holdings].sort((a, b) => b.marketValue - a.marketValue).slice(0, 5) : [];
+  return (
+    <Panel className={`stack gap-sm ${className ?? ""}`}>
+      <div className="row between wrap gap-sm">
+        <strong className="row gap-sm">
+          <Briefcase size={17} /> Your holdings
+        </strong>
+        {rows.length ? (
+          <Link href="/app/portfolio" className="btn btn-sm">
+            See all
+          </Link>
+        ) : null}
+      </div>
+      {loading && rows.length ? (
+        <RowsSkeleton rows={Math.min(3, rows.length)} />
+      ) : rows.length === 0 ? (
+        <EmptyState
+          icon={<ArrowLeftRight size={24} />}
+          title="No trades yet"
+          hint="Your first practice trade takes about a minute. It's all play money."
+          action={{ label: "Make your first trade", href: "/app/trade" }}
+        />
+      ) : (
+        <div className="list">
+          {rows.map((h) => (
+            <Link key={h.symbol} href={`/app/trade?symbol=${encodeURIComponent(h.symbol)}`} className="list-row" aria-label={`${h.symbol}: ${formatCurrency(h.marketValue)}, ${formatPercent(h.gainPercent, true)}`}>
+              <span className="sym-badge">{h.symbol.slice(0, 4)}</span>
+              <div className="grow stack" style={{ gap: 2, minWidth: 0 }}>
+                <strong>{h.symbol}</strong>
+                <span className="small muted">{formatShareCount(h.shares)}</span>
+              </div>
+              <div className="stack" style={{ alignItems: "flex-end", gap: 2 }}>
+                <strong>{formatCurrency(h.marketValue)}</strong>
+                <span className={`small ${h.gain >= 0 ? "gain" : "loss"}`}>{formatPercent(h.gainPercent, true)}</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </Panel>
   );
 }
 

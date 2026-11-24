@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Calculator, ChevronDown } from "lucide-react";
-import { formatCurrency, formatNumber } from "@/lib/format";
+import { formatCurrency, formatNumber, formatPercent } from "@/lib/format";
 import { positionSize } from "@/lib/position-size";
 import { parseAmount } from "@/lib/validation";
 import { Panel } from "./ui";
@@ -83,7 +83,7 @@ export function PositionSizer({
                 <span className="small muted">Suggested size</span>
                 <strong className="value-lg">{formatNumber(result.shares)} shares</strong>
                 <span className="small muted">
-                  Costs {formatCurrency(result.cost)} ({result.pctOfAccount.toFixed(1)}% of account). If the stop hits you lose about {formatCurrency(result.riskAmount)} ({formatCurrency(result.perShareRisk)}/share).
+                  Costs {formatCurrency(result.cost)} ({formatPercent(result.pctOfAccount, false, 1)} of account). If the stop hits you lose about {formatCurrency(result.riskAmount)} ({formatCurrency(result.perShareRisk)}/share).
                 </span>
               </div>
               {result.exceedsCash ? (

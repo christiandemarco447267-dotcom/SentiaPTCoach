@@ -6,7 +6,7 @@ import { ArrowRight, Trophy } from "lucide-react";
 import { benchmarkStats, feedSegment, livePoint, seriesWithGhost, type BenchmarkPoint, type BenchmarkStats } from "@/lib/benchmark";
 import { formatDate, formatPercent } from "@/lib/format";
 import { useApp } from "@/lib/store";
-import { Panel } from "./ui";
+import { ChartSkeleton, Panel } from "./ui";
 
 /** Benchmark stats for the current account, including an unsaved "now" point. */
 export function useBenchmark(): BenchmarkStats | null {
@@ -209,6 +209,7 @@ function EmptyChart() {
 /** Full "You vs. S&P 500" panel: chart + stats. */
 export function BenchmarkPanel() {
   const stats = useBenchmark();
+  const { market } = useApp();
   const [visible, setVisible] = useState<SeriesVisibility>(ALL_VISIBLE);
   if (!stats) return null;
   const { points, winRate } = stats;
@@ -237,7 +238,7 @@ export function BenchmarkPanel() {
         <Legend visible={visible} onToggle={toggle} showGhost={hasGhost} />
       </div>
 
-      {points.length >= 2 ? <BenchmarkChart points={points} visible={visible} /> : <EmptyChart />}
+      {market.status === "loading" ? <ChartSkeleton height={230} /> : points.length >= 2 ? <BenchmarkChart points={points} visible={visible} /> : <EmptyChart />}
       {hasGhost && ghostLast !== undefined && points.length >= 2 ? (
         <span className="small dim">
           If you never sold: {formatPercent(ghostLast - 100, true)} vs. your {formatPercent(stats.totalReturnPct, true)}. Approximation —
@@ -256,12 +257,12 @@ export function BenchmarkPanel() {
         />
         <MiniStat
           label="Max drawdown"
-          value={stats.maxDrawdownPct > 0 ? `−${stats.maxDrawdownPct.toFixed(2)}%` : "0.00%"}
+          value={formatPercent(-stats.maxDrawdownPct)}
           toneClass={stats.maxDrawdownPct > 0 ? "loss" : undefined}
         />
         <MiniStat
           label="Win rate"
-          value={winRate.percent === null ? "—" : `${winRate.percent.toFixed(0)}%`}
+          value={winRate.percent === null ? "—" : formatPercent(winRate.percent, false, 0)}
           hint={winRate.closed ? `${winRate.wins} of ${winRate.closed} closed trades` : "No closed trades yet"}
         />
       </div>
@@ -272,6 +273,7 @@ export function BenchmarkPanel() {
 /** Compact dashboard card linking to the full panel on Portfolio. */
 export function BenchmarkCard() {
   const stats = useBenchmark();
+  const { market } = useApp();
   if (!stats) return null;
   const { points } = stats;
   return (
@@ -286,7 +288,9 @@ export function BenchmarkCard() {
           <ArrowRight size={15} />
         </span>
       </div>
-      {points.length >= 2 ? (
+      {market.status === "loading" ? (
+        <ChartSkeleton height={150} />
+      ) : points.length >= 2 ? (
         <BenchmarkChart points={points} height={150} visible={{ portfolio: true, spy: true, ghost: false }} />
       ) : (
         <span className="small muted">Tracking started. The chart fills in as prices update.</span>

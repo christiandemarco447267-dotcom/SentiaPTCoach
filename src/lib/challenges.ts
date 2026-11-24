@@ -9,6 +9,7 @@ import { BROAD_FUND_SECTORS, sectorOf, type Sector } from "./sectors";
 import { commit, nowIso } from "./storage";
 import type { AppState, Badge, DipWatch, PracticeGoal, Quote } from "./types";
 import { LIMITS, normalizeSymbol } from "./validation";
+import { formatPercent } from "./format";
 
 export type ChallengeId = "beat-spy-month" | "planned-trades" | "hold-dip" | "three-sectors" | "review-trades";
 
@@ -139,7 +140,7 @@ export function evaluateChallenges(state: AppState, summary: PortfolioSummary | 
         const detail = done
           ? "You held a dipping position back to break-even."
           : watching.length
-            ? `Watching ${watching.map((d) => `${d.symbol} (${d.dipPct.toFixed(1)}%)`).join(", ")}: hold until it's back to your cost.`
+            ? `Watching ${watching.map((d) => `${d.symbol} (${formatPercent(d.dipPct, false, 1)})`).join(", ")}: hold until it's back to your cost.`
             : "None of your positions has dipped 5% below cost yet.";
         return base(done ? 1 : 0, 1, done, detail);
       }
@@ -155,7 +156,7 @@ export function evaluateChallenges(state: AppState, summary: PortfolioSummary | 
         let detail: string;
         if (curPerf) {
           const diff = round2(curPerf.returnPct - curPerf.spyReturnPct);
-          detail = `This month: you ${curPerf.returnPct.toFixed(2)}% vs SPY ${curPerf.spyReturnPct.toFixed(2)}% (${diff >= 0 ? "ahead" : "behind"} by ${Math.abs(diff).toFixed(2)} pts), ${daysLeft} day${daysLeft === 1 ? "" : "s"} left.`;
+          detail = `This month: you ${formatPercent(curPerf.returnPct)} vs SPY ${formatPercent(curPerf.spyReturnPct)} (${diff >= 0 ? "ahead" : "behind"} by ${Math.abs(diff).toFixed(2)} pts), ${daysLeft} day${daysLeft === 1 ? "" : "s"} left.`;
         } else {
           detail = "Not enough price history this month yet. Keep Sentia open now and then to record it.";
         }

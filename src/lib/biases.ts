@@ -3,6 +3,7 @@
 // worth reflecting on, not mistakes, and never block a trade.
 import type { Transaction } from "./types";
 import { normalizeSymbol } from "./validation";
+import { formatPercent } from "./format";
 
 export const BIAS_KEYS = ["fomo", "revenge", "panic", "disposition", "overtrading"] as const;
 export type BiasKey = (typeof BIAS_KEYS)[number];
@@ -145,7 +146,7 @@ export function detectBiasEvents(transactions: Transaction[]): BiasEvent[] {
     if (tx.type === "buy") {
       // FOMO: big up day…
       if (tx.dayChange !== undefined && tx.dayChange >= BIAS_RULES.fomoDayChangePct) {
-        events.push({ bias: "fomo", txId: tx.id, at: tx.createdAt, symbol: sym, detail: `Bought ${sym} while it was up ${tx.dayChange.toFixed(1)}% on the day.` });
+        events.push({ bias: "fomo", txId: tx.id, at: tx.createdAt, symbol: sym, detail: `Bought ${sym} while it was up ${formatPercent(tx.dayChange, false, 1)} on the day.` });
       } else if (sym && tx.price) {
         // …or a fresh recent high after a run-up, judged from your own earlier fills.
         const since = t - BIAS_RULES.fomoLookbackDays * DAY;
@@ -156,7 +157,7 @@ export function detectBiasEvents(transactions: Transaction[]): BiasEvent[] {
           const hi = Math.max(...seen);
           const lo = Math.min(...seen);
           if (tx.price >= hi && lo > 0 && ((tx.price - lo) / lo) * 100 >= BIAS_RULES.fomoRunUpPct) {
-            events.push({ bias: "fomo", txId: tx.id, at: tx.createdAt, symbol: sym, detail: `Bought ${sym} at a new recent high, ${(((tx.price - lo) / lo) * 100).toFixed(0)}% above where you traded it lately.` });
+            events.push({ bias: "fomo", txId: tx.id, at: tx.createdAt, symbol: sym, detail: `Bought ${sym} at a new recent high, ${formatPercent(((tx.price - lo) / lo) * 100, false, 0)} above where you traded it lately.` });
           }
         }
       }
@@ -169,7 +170,7 @@ export function detectBiasEvents(transactions: Transaction[]): BiasEvent[] {
         events.push({ bias: "revenge", txId: tx.id, at: tx.createdAt, symbol: sym, detail: `Bought ${sym} ${hours < 1 ? "within the hour" : `${hours.toFixed(0)}h`} after a realized loss on ${recentLoss.symbol}.` });
       }
     } else if (tx.dayChange !== undefined && tx.dayChange <= BIAS_RULES.panicDayChangePct && (tx.realizedGain ?? 0) < 0) {
-      events.push({ bias: "panic", txId: tx.id, at: tx.createdAt, symbol: sym, detail: `Sold ${sym} at a loss on a ${tx.dayChange.toFixed(1)}% down day.` });
+      events.push({ bias: "panic", txId: tx.id, at: tx.createdAt, symbol: sym, detail: `Sold ${sym} at a loss on a ${formatPercent(tx.dayChange, false, 1)} down day.` });
     }
 
     // Overtrading: N decisions inside a rolling window (flagged once per window).

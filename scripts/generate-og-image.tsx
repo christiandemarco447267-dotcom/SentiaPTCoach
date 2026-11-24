@@ -1,4 +1,8 @@
 /**
+ * NOTE (Nov 2026): public/og-image.png is now a screenshot composite of the real app (report
+ * card, journal, coach + the feature list). Running this script replaces it with the older
+ * icon-and-tagline card.
+ *
  * Regenerates public/og-image.png (1200x630) from public/icon.png + the tagline.
  *
  *   npm run og:image

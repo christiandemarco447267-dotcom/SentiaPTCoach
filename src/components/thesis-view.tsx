@@ -3,7 +3,7 @@
 import { track } from "@/lib/analytics";
 
 import { useMemo, useState } from "react";
-import { FlaskConical, Pencil, Trash2 } from "lucide-react";
+import { FlaskConical, Lightbulb, Pencil, Trash2 } from "lucide-react";
 import { formatCurrency, formatDate, formatNumber, formatPercent, formatSignedCurrency } from "@/lib/format";
 import { nameForSymbol } from "@/lib/market";
 import { quoteMap, type HoldingValue } from "@/lib/portfolio";
@@ -57,7 +57,7 @@ export function ThesisView() {
       <PageHeader title="Investment theses" subtitle="Write down why you own each position. Future-you will thank you." />
 
       {state.theses.length === 0 ? (
-        <EmptyState title="No theses yet" hint="Document your first investment idea below." />
+        <EmptyState icon={<Lightbulb size={24} />} title="No theses yet" hint="Write down why you'd own a stock before you buy it. Future you will thank you." action={{ label: "Write a thesis", onClick: () => document.getElementById("thesis-title")?.focus() }} />
       ) : (
         <div className="stack gap-md">
           {state.theses.map((thesis) => {

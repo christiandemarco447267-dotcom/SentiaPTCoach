@@ -9,7 +9,7 @@ import { quoteMap } from "@/lib/portfolio";
 import { useApp } from "@/lib/store";
 import { normalizeSymbol } from "@/lib/validation";
 import { formatAsOfET } from "@/lib/live-quotes";
-import { DemoPricesBadge, Loading, Panel, PageHeader, QuoteBadge, Sparkline, StarButton } from "./ui";
+import { DemoPricesBadge, Loading, Panel, PageHeader, PriceSkeleton, QuoteBadge, Sparkline, StarButton } from "./ui";
 
 export function MarketsView() {
   const { ready, state, quotes, market, refreshMarket } = useApp();
@@ -83,8 +83,8 @@ export function MarketsView() {
                 </div>
                 <Sparkline symbol={symbol} />
                 <div className="stack" style={{ alignItems: "flex-end", gap: 2 }}>
-                  <strong>{quote ? formatCurrency(quote.price) : "—"}</strong>
-                  <span className={`small ${change >= 0 ? "gain" : "loss"}`}>{quote ? formatPercent(change, true) : "no price"}</span>
+                  <strong>{quote ? formatCurrency(quote.price) : market.status === "loading" ? <PriceSkeleton /> : "—"}</strong>
+                  <span className={`small ${change >= 0 ? "gain" : "loss"}`}>{quote ? formatPercent(change, true) : market.status === "loading" ? <PriceSkeleton width="3em" /> : "no price"}</span>
                   {quote ? <QuoteBadge quote={quote} /> : null}
                 </div>
                 <div className="row gap-sm">

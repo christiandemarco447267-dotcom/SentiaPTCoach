@@ -5,6 +5,7 @@ import { Download, Share2, X } from "lucide-react";
 import { assetPath } from "@/lib/asset";
 import { drawTradeCard, tradeCardData } from "@/lib/share-card";
 import { useApp } from "@/lib/store";
+import { formatSignedPercent } from "@/lib/format";
 
 /** Button that opens the share-card dialog for a closed trade (a ledger sell). */
 export function ShareTradeButton({ txId, symbol }: { txId: string; symbol?: string }) {
@@ -90,7 +91,7 @@ export function ShareCardDialog({ txId, onClose }: { txId: string; onClose: () =
         </div>
         {data ? (
           <>
-            <canvas ref={canvasRef} className="share-canvas" width={1080} height={1080} aria-label={`${data.symbol} trade card: ${data.resultPct.toFixed(1)}%, held ${data.holdLabel}`} />
+            <canvas ref={canvasRef} className="share-canvas" width={1080} height={1080} aria-label={`${data.symbol} trade card: ${formatSignedPercent(data.resultPct, 1)}, held ${data.holdLabel}`} />
             <div className="switch-row">
               <span className="small">Show dollar amount</span>
               <button type="button" role="switch" aria-checked={showDollars} className="switch" onClick={() => setShowDollars((v) => !v)} aria-label="Show dollar amount" />

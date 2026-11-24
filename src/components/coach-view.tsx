@@ -15,6 +15,8 @@ import {
   type StoredMessage,
 } from "@/lib/coach-history";
 import { buildCoachContext } from "@/lib/coach-context";
+import { followUpChips } from "@/lib/coach-followups";
+import { SafeMarkdown } from "./safe-markdown";
 import { useApp } from "@/lib/store";
 import { Loading, Panel, PageHeader } from "./ui";
 
@@ -88,16 +90,17 @@ function CoachChat({ scope }: { scope: string }) {
   };
 
   /** Chips always use the instant built-in coach; typed questions use the AI coach when available. */
-  const ask = async (question: string, via: "chip" | "typed" = "typed") => {
+  const ask = async (question: string, via: "chip" | "typed" = "typed", display?: string) => {
     const q = question.trim();
     if (!q || busy) return;
-    setInput("");
+    if (!display) setInput("");
     track("coach_asked");
-    const userMsg: Message = { id: seq.current++, role: "user", text: q.slice(0, 300) };
+    const shown = (display ?? q).slice(0, 300);
+    const userMsg: Message = { id: seq.current++, role: "user", text: shown };
     setMessages((m) => [...m, userMsg]);
 
     if (via === "chip" || !AI_ENABLED) {
-      setMessages((m) => [...m, builtIn(q)]);
+      setMessages((m) => [...m, builtIn(display ?? q)]);
       return;
     }
 
@@ -112,7 +115,7 @@ function CoachChat({ scope }: { scope: string }) {
       setMessages((m) => m.map((msg) => (msg.id === id ? { ...msg, text, streaming: false } : msg)));
     } catch (error) {
       const why = error instanceof CoachFallback ? error.message : "The AI coach is unavailable.";
-      const fallback = builtIn(q, `${why} Answered by the built-in coach instead.`);
+      const fallback = builtIn(display ?? q, `${why} Answered by the built-in coach instead.`);
       setMessages((m) => m.map((msg) => (msg.id === id ? { ...fallback, id } : msg)));
     } finally {
       setBusy(false);
@@ -152,14 +155,14 @@ function CoachChat({ scope }: { scope: string }) {
           </p>
         ) : null}
         <div className="chat-log fold-pane-a" ref={logRef} aria-live="polite">
-          {messages.map((m) => (
+          {messages.map((m, idx) => (
             <div key={m.id} className={`bubble ${m.role === "user" ? "bubble-user" : "bubble-coach"}`} aria-busy={m.streaming || undefined}>
               {m.mode ? (
                 <span className={`coach-mode coach-mode-${m.mode}`}>
                   {m.mode === "ai" ? <Bot size={12} /> : <Cpu size={12} />} {m.mode === "ai" ? "AI coach" : "Built-in coach"}
                 </span>
               ) : null}
-              <span className="coach-text">{m.text || (m.streaming ? "Thinking…" : "")}</span>
+              {m.text ? <SafeMarkdown text={m.text} className="coach-text" /> : <span className="coach-text">{m.streaming ? "Thinking…" : ""}</span>}
               {m.note ? <span className="small dim coach-note">{m.note}</span> : null}
               {m.reply?.bullets?.length ? (
                 <ul className="small">
@@ -174,6 +177,15 @@ function CoachChat({ scope }: { scope: string }) {
                     <Link key={l.href} href={l.href} className="btn btn-sm">
                       {l.label}
                     </Link>
+                  ))}
+                </div>
+              ) : null}
+              {m.role === "coach" && m.id !== 0 && !m.streaming && m.text && idx === messages.length - 1 ? (
+                <div className="row wrap gap-sm coach-followups" aria-label="Follow-up questions">
+                  {followUpChips(m.text).map((f) => (
+                    <button key={f.label} type="button" className="chip" onClick={() => void ask(f.question, "typed", f.label)} disabled={busy}>
+                      {f.label}
+                    </button>
                   ))}
                 </div>
               ) : null}

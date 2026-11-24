@@ -36,10 +36,10 @@ export function MultiChoice<T extends string>({
   return (
     <div className="stack gap-sm">
       <div className="row between pick-meta">
-        <span className="small dim">{min > 0 ? `Pick ${min === 1 ? "at least 1" : `at least ${min}`}, up to ${max}` : `Pick up to ${max}`}</span>
+        <span className="small dim">{min > 0 ? `Pick ${min === 1 ? "at least 1" : `at least ${min}`}, up to ${max}` : `Pick up to ${max}`}.</span>
         <span id={counterId} className={clsx("pick-count small", full && "pick-count-full")} aria-live="polite">
           {pickCounter(selected.length, max)}
-          {full ? <span className="pick-limit"> · Up to {max}</span> : null}
+          {full ? <span className="pick-limit"> · limit reached</span> : null}
         </span>
       </div>
       <div className={clsx("stack gap-sm", compact && "choice-grid")} role="group" aria-labelledby={labelledBy} aria-describedby={counterId}>

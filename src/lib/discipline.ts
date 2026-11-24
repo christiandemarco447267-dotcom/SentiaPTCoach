@@ -42,11 +42,64 @@ export type DisciplineScore = {
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const r1 = (v: number) => Math.round(v * 10) / 10;
 
+/** The one name for this score, everywhere (dashboard, Insights, coach, report card). */
+export const DISCIPLINE_NAME = "Discipline Score";
+
+/** The one set of bands for the Discipline Score (highest first). */
+export const DISCIPLINE_BANDS = [
+  { min: 85, label: "Excellent", color: "#34d399" },
+  { min: 70, label: "Strong", color: "#a78bfa" },
+  { min: 50, label: "Building", color: "#fbbf24" },
+  { min: 0, label: "Needs work", color: "#fb7185" },
+] as const;
+
+function bandFor(score: number) {
+  return DISCIPLINE_BANDS.find((b) => score >= b.min) ?? DISCIPLINE_BANDS[DISCIPLINE_BANDS.length - 1];
+}
+
 export function gradeFor(score: number): string {
-  if (score >= 85) return "Excellent";
-  if (score >= 70) return "Strong";
-  if (score >= 50) return "Building";
-  return "Needs work";
+  return bandFor(score).label;
+}
+
+export function disciplineColor(score: number): string {
+  return bandFor(score).color;
+}
+
+/** "Discipline Score 71/100 (Strong)" — the same wording on every surface. */
+export function disciplineLabel(d: Pick<DisciplineScore, "score" | "grade">): string {
+  return `${DISCIPLINE_NAME} ${d.score}/100 (${d.grade})`;
+}
+
+/** "85+ Excellent, 70–84 Strong, 50–69 Building, under 50 Needs work". */
+export function disciplineBandsText(): string {
+  return DISCIPLINE_BANDS.map((b, i) =>
+    i === 0 ? `${b.min}+ ${b.label}` : b.min === 0 ? `under ${DISCIPLINE_BANDS[i - 1].min} ${b.label}` : `${b.min}–${DISCIPLINE_BANDS[i - 1].min - 1} ${b.label}`,
+  ).join(", ");
+}
+
+/** Minimal record of a score, to explain what moved it after a trade. */
+export type DisciplineSnapshot = { score: number; parts: Partial<Record<DisciplineKey, number>> };
+
+export function disciplineSnapshot(d: DisciplineScore): DisciplineSnapshot {
+  const parts: Partial<Record<DisciplineKey, number>> = {};
+  for (const p of d.parts) parts[p.key] = p.points;
+  return { score: d.score, parts };
+}
+
+/**
+ * Short "why it changed" line between two snapshots, e.g.
+ * "Up 6 since your last trade: Thesis coverage +5, Diversification +1." Null when unchanged.
+ */
+export function disciplineChangeWhy(prev: DisciplineSnapshot, next: DisciplineScore): string | null {
+  const delta = next.score - prev.score;
+  if (delta === 0) return null;
+  const moves = next.parts
+    .map((p) => ({ label: p.label, d: Math.round((p.points - (prev.parts[p.key] ?? p.points)) * 10) / 10 }))
+    .filter((m) => Math.abs(m.d) >= 0.5)
+    .sort((a, b) => Math.abs(b.d) - Math.abs(a.d))
+    .slice(0, 3)
+    .map((m) => `${m.label} ${m.d > 0 ? "+" : "−"}${Math.round(Math.abs(m.d))}`);
+  return `${delta > 0 ? "Up" : "Down"} ${Math.abs(delta)} since your last trade${moves.length ? `: ${moves.join(", ")}` : ""}.`;
 }
 
 /** Highest milestone at or below the score (0 when none reached). */

@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Bot, CalendarCheck, Lightbulb, TrendingDown, TrendingUp } from "lucide-react";
 import { askAiCoach, aiCoachConfigured } from "@/lib/ai-coach";
 import { buildCoachContext } from "@/lib/coach-context";
+import { DISCIPLINE_NAME, disciplineBandsText } from "@/lib/discipline";
+import { useDiscipline } from "./discipline-card";
 import { formatCurrency, formatPercent, formatPoints } from "@/lib/format";
 import { buildWeeklyReport, dueReportWeek, reportPrompt, weekKey, weekLabel } from "@/lib/report-card";
 import { useApp } from "@/lib/store";
@@ -77,9 +79,9 @@ export function ReportCard({ report, preview = false }: { report: Pick<WeeklyRep
           <span className="eyebrow">{preview ? "This week so far" : "Week of"}</span>
           <strong style={{ fontSize: "1.15rem" }}>{weekLabel(report.week)}</strong>
         </div>
-        <div className={`grade-badge grade-${report.grade}`} aria-label={`Grade ${report.grade}, ${report.score} out of 100`}>
+        <div className={`grade-badge grade-${report.grade}`} aria-label={`Weekly grade ${report.grade}, ${report.score} out of 100 weekly points`}>
           <span className="grade-letter">{report.grade}</span>
-          <span className="grade-score">{report.score}/100</span>
+          <span className="grade-score">{report.score}/100 wk</span>
         </div>
       </div>
 
@@ -126,6 +128,17 @@ export function ReportCard({ report, preview = false }: { report: Pick<WeeklyRep
   );
 }
 
+function DisciplineToday() {
+  const d = useDiscipline();
+  if (!d) return null;
+  return (
+    <p className="small muted" style={{ margin: 0 }}>
+      Your {DISCIPLINE_NAME} today is <strong>{d.score}/100 ({d.grade})</strong>, the same score as on your dashboard. The weekly
+      grade below is a separate, week-only measure.
+    </p>
+  );
+}
+
 export function ReportCardView() {
   const { ready, state } = useApp();
   const [selected, setSelected] = useState<string | null>(null);
@@ -143,6 +156,8 @@ export function ReportCardView() {
         title="Weekly report card"
         subtitle="Every Monday: a grade, your best and worst trade, how you did against the S&P 500, and one thing to work on."
       />
+
+      <DisciplineToday />
 
       {current ? (
         <ReportCard report={current} />
@@ -203,6 +218,10 @@ export function ReportCardView() {
           <li>60 points for process: buys with a written plan (25), closed trades reviewed (15), no bias flags (20).</li>
           <li>40 points for results: 20 for matching the S&amp;P 500, up to ±20 more for beating or trailing it.</li>
           <li>A: 90+, B: 80+, C: 70+, D: 60+. Very busy weeks (over 15 trades) lose a few points.</li>
+          <li>
+            This weekly grade is not your {DISCIPLINE_NAME}. The {DISCIPLINE_NAME} ({disciplineBandsText()}) covers your whole
+            portfolio right now.
+          </li>
           <li>
             The tip comes from the built-in coach{aiCoachConfigured() ? ", or the AI coach when it's reachable" : ""}. Ask follow-ups in{" "}
             <Link href="/app/coach" className="text-link">

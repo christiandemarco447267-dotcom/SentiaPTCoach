@@ -15,8 +15,9 @@ import { formatAsOfET } from "@/lib/live-quotes";
 import { demoQuote, nameForSymbol, priceSourceOf } from "@/lib/market";
 import { resolveMarketFill } from "@/lib/market-fill";
 import { orderCondition, orderLabel } from "@/lib/orders";
-import { quoteMap } from "@/lib/portfolio";
+import { quoteMap, round2 } from "@/lib/portfolio";
 import { useApp } from "@/lib/store";
+import { isStarterTx } from "@/lib/storage";
 import { isValidSymbol, normalizeSymbol, parseAmount } from "@/lib/validation";
 import type { PendingOrder, TradePlan } from "@/lib/types";
 import { EmptyState, Loading, Panel, PageHeader, QuoteBadge, StarButton } from "./ui";
@@ -53,18 +54,23 @@ function orderHelp(mode: Mode, kind: OrderKind, live: boolean): string {
     : "Sell stop: waits, then sells once the price falls to your stop or lower (a stop-loss).";
 }
 
+/** How long an inline "order placed / review saved" confirmation stays up. */
+const NOTICE_MS = 6000;
+
 export function TradeView() {
   const { ready, state, quotes, market, actions, summary } = useApp();
   const searchParams = useSearchParams();
   const initialSymbol = searchParams.get("symbol") ?? "";
 
   const [mode, setMode] = useState<Mode>(searchParams.get("side") === "sell" ? "sell" : "buy");
+  const [notice, setNotice] = useState("");
   // Keyboard shortcuts: B / S switch sides here, "/" (from another page) lands focused on the search.
   useEffect(() => {
     const onSide = (e: Event) => {
       const side = (e as CustomEvent<string>).detail;
       if (side !== "buy" && side !== "sell") return;
       setMode(side);
+      setNotice("");
       document.getElementById("symbol")?.focus();
     };
     window.addEventListener(TRADE_SIDE_EVENT, onSide);
@@ -81,10 +87,17 @@ export function TradeView() {
   const [shares, setShares] = useState("");
   const [price, setPrice] = useState("");
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  // Inline confirmations are transient: they fade after a few seconds so a stale one never sits beside a new order.
+  useEffect(() => {
+    if (!notice) return;
+    const t = window.setTimeout(() => setNotice(""), NOTICE_MS);
+    return () => window.clearTimeout(t);
+  }, [notice]);
   const [mood, setMood] = useState<Mood | undefined>(undefined);
   // v5: pre-trade checklist (before a market buy) and post-trade review (after a sell).
-  const [checklist, setChecklist] = useState<(ChecklistDraft & { meta: { mood?: Mood; dayChange?: number }; at: string }) | null>(null);
+  const [checklist, setChecklist] = useState<
+    (ChecklistDraft & { meta: { mood?: Mood; dayChange?: number }; at: string; orderType?: "limit" | "stop" }) | null
+  >(null);
   const [sizerPlan, setSizerPlan] = useState<{ risk: number; stop: number; symbol: string } | null>(null);
   const [reviewAfter, setReviewAfter] = useState<{ afterId: string | null; symbol: string } | null>(null);
   const [reviewId, setReviewId] = useState<string | null>(null);
@@ -169,6 +182,26 @@ export function TradeView() {
     }
 
     if (kind !== "market" && priceNum !== null) {
+      if (mode === "buy" && state.settings.preTradeChecklist) {
+        // Same three questions as a market buy; the order is placed once they're answered (or skipped).
+        if (round2(sharesNum * priceNum) > state.cash + 1e-9) {
+          setError(`Not enough cash. At ${formatCurrency(priceNum)} this order costs ${formatCurrency(sharesNum * priceNum)} but only ${formatCurrency(state.cash)} is available.`);
+          return;
+        }
+        const sized = sizerPlan && sizerPlan.symbol === normalized ? sizerPlan : null;
+        setChecklist({
+          symbol: normalized,
+          shares: sharesNum,
+          price: priceNum,
+          suggestedRisk: sized ? Math.min(sized.risk, sharesNum * priceNum) : undefined,
+          suggestedExit: sized ? `Sell if it falls to ${formatCurrency(sized.stop)} (my stop).` : undefined,
+          orderLabel: orderLabel({ side: "buy", type: kind }),
+          orderType: kind,
+          meta: { mood, dayChange: quote?.changePercent },
+          at: "",
+        });
+        return;
+      }
       try {
         actions.placeOrder({ symbol: normalized, side: mode, type: kind, shares: sharesNum, triggerPrice: priceNum });
         setNotice(
@@ -230,8 +263,23 @@ export function TradeView() {
 
   const completeBuy = (plan: TradePlan | undefined) => {
     if (!checklist) return;
-    const { symbol: sym, shares: qty, price: px, meta, at } = checklist;
+    const { symbol: sym, shares: qty, price: px, meta, at, orderType } = checklist;
     setChecklist(null);
+    if (orderType) {
+      try {
+        actions.placeOrder({ symbol: sym, side: "buy", type: orderType, shares: qty, triggerPrice: px, plan });
+        setNotice(
+          `${orderLabel({ side: "buy", type: orderType })} order placed: ${formatNumber(qty)} ${sym}, ${orderCondition({ side: "buy", type: orderType, triggerPrice: px })}.${plan ? " Plan saved with the order." : ""}`,
+        );
+        track("trade_placed");
+        setShares("");
+        setMood(undefined);
+        setSizerPlan(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Order could not be placed.");
+      }
+      return;
+    }
     try {
       actions.buy({ symbol: sym, shares: qty, price: px, ...meta, plan });
       playTradeFx("buy", qty, sym, document.getElementById("trade-submit"));
@@ -261,7 +309,10 @@ export function TradeView() {
             <button
               type="button"
               className={`btn btn-sm ${mode === "buy" ? "btn-primary" : ""}`}
-              onClick={() => setMode("buy")}
+              onClick={() => {
+                setMode("buy");
+                setNotice("");
+              }}
               aria-pressed={mode === "buy"}
             >
               <ArrowUpRight size={15} /> Buy
@@ -269,7 +320,10 @@ export function TradeView() {
             <button
               type="button"
               className={`btn btn-sm ${mode === "sell" ? "btn-primary" : ""}`}
-              onClick={() => setMode("sell")}
+              onClick={() => {
+                setMode("sell");
+                setNotice("");
+              }}
               aria-pressed={mode === "sell"}
             >
               <ArrowDownLeft size={15} /> Sell
@@ -284,7 +338,11 @@ export function TradeView() {
                 key={option.key}
                 type="button"
                 className={kind === option.key ? "active" : ""}
-                onClick={() => setKind(option.key)}
+                onClick={() => {
+                  setKind(option.key);
+                  setNotice("");
+                  setError("");
+                }}
                 aria-pressed={kind === option.key}
               >
                 {option.label}
@@ -426,9 +484,13 @@ export function TradeView() {
               {notice ? <span className="form-ok">{notice}</span> : null}
             </div>
 
-            {mode === "buy" && kind === "market" ? (
+            {mode === "buy" ? (
               <span className="small dim">
-                {state.settings.preTradeChecklist ? "You'll answer 3 quick questions (why, exit plan, risk) before the buy goes through." : "Pre-trade checklist is off (Settings)."}
+                {state.settings.preTradeChecklist
+                  ? kind === "market"
+                    ? "You'll answer 3 quick questions (why, exit plan, risk) before the buy goes through."
+                    : "You'll answer 3 quick questions (why, exit plan, risk) before the order is placed."
+                  : "Pre-trade checklist is off (Settings)."}
               </span>
             ) : null}
 
@@ -487,7 +549,7 @@ export function TradeView() {
                       <span className="small muted">{tx.note}</span>
                     ) : null}
                     <div className="row between small dim">
-                      <span>{formatRelativeDay(tx.createdAt)}</span>
+                      <span>{isStarterTx(tx) ? "Starter" : formatRelativeDay(tx.createdAt)}</span>
                       {tx.realizedGain !== undefined ? (
                         <span className="row gap-sm">
                           <span className={tx.realizedGain >= 0 ? "gain" : "loss"}>realized {formatCurrency(tx.realizedGain)}</span>

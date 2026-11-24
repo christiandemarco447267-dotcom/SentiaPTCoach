@@ -8,6 +8,7 @@ import { formatCurrency, formatPercent, formatShareCount, formatSignedCurrency }
 import { realizedPnl } from "@/lib/portfolio";
 import { useApp } from "@/lib/store";
 import { DisciplineCard } from "./discipline-card";
+import { StarterBanner } from "./starter-banner";
 import { ChartSkeleton, EmptyState, Loading, Panel, PriceSkeleton, RowsSkeleton } from "./ui";
 
 // The chart code loads after the page is interactive; a same-height shimmer holds its place.
@@ -97,13 +98,15 @@ export function DashboardHome() {
         </Panel>
       ) : null}
 
+      <StarterBanner />
+
       <Panel strong className="panel-pad-lg hero-balance holo stack gap-md">
         <span className="eyebrow">Total portfolio value</span>
         <div className="row between wrap gap-md">
           <span className="value-xl">{market.status === "loading" && state.holdings.length ? <PriceSkeleton width="7em" /> : formatCurrency(summary.total)}</span>
-          <span className={`badge ${summary.gain >= 0 ? "badge-gain" : "badge-loss"}`}>
+          <span className={`badge ${summary.gain >= 0 ? "badge-gain" : "badge-loss"}`} title="Open-position P/L: current value vs. what you paid">
             {summary.gain >= 0 ? <ArrowUpRight size={16} /> : null}
-            {formatSignedCurrency(summary.gain)} ({formatPercent(summary.gainPercent, true)})
+            {formatSignedCurrency(summary.gain)} ({formatPercent(summary.gainPercent, true)}) open P/L
           </span>
         </div>
         <div className="row wrap gap-md">

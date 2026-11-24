@@ -6,6 +6,7 @@ import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL, siteUrl } from "@/li
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 import "./polish.css";
+import "./fixpass.css";
 
 const dancingScript = Dancing_Script({
   variable: "--font-brand",

@@ -426,6 +426,59 @@ export function setPracticeGoals(state: AppState, goals: readonly AppState["prof
   return commit({ ...state, profile: { ...state.profile, goals: cleanPicks(goals, PRACTICE_GOALS) } });
 }
 
+// ---- Starter (sample) portfolio --------------------------------------------
+
+/** Notes the seeded starter account writes on its own opening deposit and buys. */
+export const STARTER_NOTES = { deposit: "Starting balance", buy: "Opening position" } as const;
+
+/** A transaction written by the sample starter portfolio (not a decision the user made). */
+export function isStarterTx(tx: Pick<Transaction, "type" | "note">): boolean {
+  return (tx.type === "buy" && tx.note === STARTER_NOTES.buy) || (tx.type === "deposit" && tx.note === STARTER_NOTES.deposit);
+}
+
+/** The cash a fresh start gives: the starter account's opening deposit (so the account size stays the same). */
+export function freshStartCash(state: AppState): number {
+  const dep = state.transactions.find((tx) => tx.type === "deposit" && tx.note === STARTER_NOTES.deposit);
+  return dep ? dep.amount : 25_000;
+}
+
+/** Show the "this is a sample starter portfolio" banner? Only while a seeded position is still held and it wasn't dismissed. */
+export function showStarterNotice(state: AppState): boolean {
+  if (state.achievements.starterNoticeDismissed) return false;
+  const seeded = new Set(state.transactions.filter((tx) => tx.type === "buy" && tx.note === STARTER_NOTES.buy).map((tx) => (tx.symbol ?? "").toUpperCase()));
+  return state.holdings.some((h) => seeded.has(h.symbol.toUpperCase()));
+}
+
+export function dismissStarterNotice(state: AppState): AppState {
+  if (state.achievements.starterNoticeDismissed) return state;
+  return commit({ ...state, achievements: { ...state.achievements, starterNoticeDismissed: true } });
+}
+
+/**
+ * Replace the sample starter portfolio with a cash-only account. Keeps the profile,
+ * settings, watchlist, alerts and badges; clears positions, theses, trades, orders,
+ * performance history and report cards so nothing measures the sample.
+ */
+export function startFresh(state: AppState, cash: number = freshStartCash(state)): AppState {
+  const amount = round2(cash);
+  if (!Number.isFinite(amount) || amount <= 0 || amount > LIMITS.maxMoney) throw new Error("Choose a starting cash amount above $0.");
+  const now = nowIso();
+  const deposit: Transaction = { id: newId(), type: "deposit", amount, cashAfter: amount, note: "Fresh start", createdAt: now };
+  return commit({
+    ...state,
+    cash: amount,
+    holdings: [],
+    theses: [],
+    transactions: [deposit],
+    orders: [],
+    snapshots: [],
+    reports: [],
+    dips: [],
+    replay: null,
+    achievements: { ...state.achievements, starterNoticeDismissed: true },
+  });
+}
+
 /** Record the highest Discipline Score milestone reached (never moves down). */
 export function recordDisciplineMilestone(state: AppState, milestone: number): AppState {
   const prev = state.achievements.disciplineMilestone;

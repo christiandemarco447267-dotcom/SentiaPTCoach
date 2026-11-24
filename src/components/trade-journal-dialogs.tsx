@@ -8,7 +8,15 @@ import type { TradePlan, Transaction } from "@/lib/types";
 import { parseAmount } from "@/lib/validation";
 import { Dialog } from "./dialog";
 
-export type ChecklistDraft = { symbol: string; shares: number; price: number; suggestedRisk?: number; suggestedExit?: string };
+export type ChecklistDraft = {
+  symbol: string;
+  shares: number;
+  price: number;
+  suggestedRisk?: number;
+  suggestedExit?: string;
+  /** Set for a limit/stop buy, e.g. "Buy limit": the plan is saved with the order and the buy when it fills. */
+  orderLabel?: string;
+};
 
 /** The 3 quick pre-trade questions shown before a buy. Answers are saved with the trade. */
 export function PreTradeChecklist({
@@ -55,12 +63,13 @@ function ChecklistForm({ draft, onConfirm, onSkip, onCancel }: { draft: Checklis
         <div className="stack" style={{ gap: 2 }}>
           <span className="eyebrow">Pre-trade checklist</span>
           <h2 id="checklist-title" style={{ fontSize: "1.3rem" }}>
-            Buy {formatNumber(draft.shares)} {draft.symbol}
+            {draft.orderLabel ?? "Buy"} {formatNumber(draft.shares)} {draft.symbol}
           </h2>
         </div>
       </div>
       <p id="checklist-desc" className="small muted" style={{ margin: 0 }}>
-        About {formatCurrency(cost)} at {formatCurrency(draft.price)}. Three quick answers, saved with the trade so you can check them later.
+        About {formatCurrency(cost)} at {formatCurrency(draft.price)}
+        {draft.orderLabel ? " (your order price)" : ""}. Three quick answers, saved with the trade so you can check them later.
       </p>
       <div className="field">
         <label htmlFor="cl-why">1. Why are you buying?</label>
@@ -90,7 +99,7 @@ function ChecklistForm({ draft, onConfirm, onSkip, onCancel }: { draft: Checklis
           </button>
         </span>
         <button type="submit" className="btn btn-primary">
-          Save plan &amp; buy
+          {draft.orderLabel ? "Save plan & place order" : "Save plan & buy"}
         </button>
       </div>
       <span className="small dim">

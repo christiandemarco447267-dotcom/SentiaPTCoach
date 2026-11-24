@@ -25,5 +25,5 @@ export function pickLocked<T>(selected: readonly T[], value: T, max = MAX_SETUP_
 
 /** "2 of 3" */
 export function pickCounter(count: number, max = MAX_SETUP_PICKS): string {
-  return `${Math.min(count, max)} of ${max}`;
+  return `${Math.min(count, max)} of ${max} picked`;
 }

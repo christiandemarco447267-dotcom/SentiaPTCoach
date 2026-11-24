@@ -24,11 +24,11 @@ test("togglePick adds up to 3, ignores a 4th, and removes on a second tap", () =
   assert.deepEqual(s, ["a", "b", "c"]);
   assert.equal(pickLocked(s, "d"), true);
   assert.equal(pickLocked(s, "a"), false);
-  assert.equal(pickCounter(s.length), "3 of 3");
+  assert.equal(pickCounter(s.length), "3 of 3 picked");
   s = togglePick(s, "b");
   assert.deepEqual(s, ["a", "c"]);
   assert.equal(pickLocked(s, "d"), false);
-  assert.equal(pickCounter(2), "2 of 3");
+  assert.equal(pickCounter(2), "2 of 3 picked");
 });
 
 test("cleanPicks drops duplicates, unknown values and extras", () => {

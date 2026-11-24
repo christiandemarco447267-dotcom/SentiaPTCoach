@@ -1,18 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { DEMO_UNIVERSE, nameForSymbol, priceSourceOf } from "@/lib/market";
 import { quoteMap } from "@/lib/portfolio";
 import { useApp } from "@/lib/store";
-import { normalizeSymbol } from "@/lib/validation";
+import { isValidSymbol, normalizeSymbol } from "@/lib/validation";
 import { formatAsOfET } from "@/lib/live-quotes";
+import { SymbolSearch } from "./symbol-search";
 import { DemoPricesBadge, Loading, Panel, PageHeader, PriceSkeleton, QuoteBadge, Sparkline, StarButton } from "./ui";
 
 export function MarketsView() {
   const { ready, state, quotes, market, refreshMarket } = useApp();
+  const router = useRouter();
+  const [search, setSearch] = useState("");
   const prices = useMemo(() => quoteMap(quotes), [quotes]);
 
   const symbols = useMemo(() => {
@@ -46,6 +50,35 @@ export function MarketsView() {
           </button>
         }
       />
+
+      <Panel className="stack gap-sm">
+        <label htmlFor="markets-search" className="row gap-sm">
+          <strong>Find a ticker</strong>
+          <span className="small dim">Type a symbol or company, use ↑ ↓ and Enter to open it in Trade.</span>
+        </label>
+        <form
+          className="row gap-sm"
+          role="search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const sym = normalizeSymbol(search);
+            if (isValidSymbol(sym)) router.push(`/app/trade?symbol=${encodeURIComponent(sym)}`);
+          }}
+        >
+          <SymbolSearch
+            id="markets-search"
+            value={search}
+            onChange={setSearch}
+            onPick={(entry) => router.push(`/app/trade?symbol=${encodeURIComponent(entry.symbol)}`)}
+            placeholder="Search e.g. AAPL or Apple"
+            ariaLabel="Search tickers"
+            className="grow"
+          />
+          <button type="submit" className="btn btn-primary" disabled={!isValidSymbol(normalizeSymbol(search))}>
+            Open
+          </button>
+        </form>
+      </Panel>
 
       <Panel className="row between wrap gap-sm">
         <span className="row wrap gap-sm">

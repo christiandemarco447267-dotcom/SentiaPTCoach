@@ -30,7 +30,8 @@ export function Dialog({
   useEffect(() => {
     if (!open) return;
     const returnTo = document.activeElement as HTMLElement | null;
-    const first = ref.current?.querySelector<HTMLElement>("[data-autofocus], input, textarea, select, button");
+    const first =
+      ref.current?.querySelector<HTMLElement>("[data-autofocus]") ?? ref.current?.querySelector<HTMLElement>("input, textarea, select, button");
     (first ?? ref.current)?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {

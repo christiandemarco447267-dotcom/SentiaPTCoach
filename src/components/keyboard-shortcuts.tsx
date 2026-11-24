@@ -4,21 +4,23 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Keyboard, X } from "lucide-react";
 import { resolveShortcut, SHORTCUT_HELP, TRADE_SIDE_EVENT, type ShortcutState } from "@/lib/shortcuts";
+import { CommandPalette, OPEN_PALETTE_EVENT } from "./command-palette";
 import { Dialog } from "./dialog";
-
-function focusSearch(): boolean {
-  const el = document.querySelector<HTMLInputElement>("main input[role='combobox'], main input[type='search'], [data-shortcut-search]");
-  if (!el) return false;
-  el.focus();
-  el.select?.();
-  return true;
-}
 
 /** Desktop keyboard shortcuts for the app (see SHORTCUT_HELP). Press ? for the cheat sheet. */
 export function KeyboardShortcuts() {
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const [helpOpen, setHelpOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    const open = () => {
+      setHelpOpen(false);
+      setPaletteOpen(true);
+    };
+    window.addEventListener(OPEN_PALETTE_EVENT, open);
+    return () => window.removeEventListener(OPEN_PALETTE_EVENT, open);
+  }, []);
   const seq = useRef<ShortcutState>({ pendingG: null });
   const pathRef = useRef(pathname);
   useEffect(() => {
@@ -38,7 +40,7 @@ export function KeyboardShortcuts() {
           return;
         case "search":
           e.preventDefault();
-          if (!focusSearch()) router.push("/app/trade?focus=search");
+          setPaletteOpen(true);
           return;
         case "side":
           e.preventDefault();
@@ -56,6 +58,8 @@ export function KeyboardShortcuts() {
   }, [router]);
 
   return (
+    <>
+    <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     <Dialog open={helpOpen} onClose={() => setHelpOpen(false)} labelledBy="shortcuts-title">
       <div className="row between gap-sm">
         <h2 id="shortcuts-title" className="row gap-sm" style={{ margin: 0, fontSize: "1.15rem" }}>
@@ -84,5 +88,6 @@ export function KeyboardShortcuts() {
         Shortcuts pause while you type in a field.
       </p>
     </Dialog>
+    </>
   );
 }

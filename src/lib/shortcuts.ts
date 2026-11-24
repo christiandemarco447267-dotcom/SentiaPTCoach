@@ -1,6 +1,6 @@
 // Desktop keyboard shortcuts (pure logic; the component wires it to window keydown).
-//   /        focus search          B   buy          S   sell
-//   G then D dashboard   G then P portfolio   G then T trade
+//   /        search palette        B   buy          S   sell
+//   G then D dashboard   G then P portfolio   G then T trade   G then W watchlist   G then C coach
 //   ?        shortcuts help sheet
 // Shortcuts never fire while typing in a field, with Ctrl/⌘/Alt held, or inside an open dialog.
 
@@ -18,15 +18,19 @@ export const NAV_TARGETS: Record<string, { href: string; label: string }> = {
   d: { href: "/app", label: "Dashboard" },
   p: { href: "/app/portfolio", label: "Portfolio" },
   t: { href: "/app/trade", label: "Trade" },
+  w: { href: "/app/watchlist", label: "Watchlist" },
+  c: { href: "/app/coach", label: "Ask Sentia (coach)" },
 };
 
 export const SHORTCUT_HELP: Array<{ keys: string[]; label: string }> = [
-  { keys: ["/"], label: "Focus the ticker search" },
+  { keys: ["/"], label: "Search tickers and pages" },
   { keys: ["B"], label: "Buy (opens Trade on the Buy side)" },
   { keys: ["S"], label: "Sell (opens Trade on the Sell side)" },
   { keys: ["G", "D"], label: "Go to Dashboard" },
   { keys: ["G", "P"], label: "Go to Portfolio" },
   { keys: ["G", "T"], label: "Go to Trade" },
+  { keys: ["G", "W"], label: "Go to Watchlist" },
+  { keys: ["G", "C"], label: "Go to Ask Sentia (coach)" },
   { keys: ["?"], label: "Show this list" },
   { keys: ["Esc"], label: "Close a dialog or this list" },
 ];

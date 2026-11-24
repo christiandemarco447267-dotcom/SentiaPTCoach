@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowRight, Trophy } from "lucide-react";
-import { benchmarkStats, feedSegment, livePoint, seriesWithGhost, type BenchmarkPoint, type BenchmarkStats } from "@/lib/benchmark";
+import { benchmarkStats, feedSegment, livePoint, marketStandingLabel, seriesWithGhost, winRateHint, type BenchmarkPoint, type BenchmarkStats } from "@/lib/benchmark";
 import { formatDate, formatPercent } from "@/lib/format";
 import { useApp } from "@/lib/store";
 import { ChartSkeleton, Panel } from "./ui";
@@ -213,6 +213,7 @@ export function BenchmarkPanel() {
   const [visible, setVisible] = useState<SeriesVisibility>(ALL_VISIBLE);
   if (!stats) return null;
   const { points, winRate } = stats;
+  const sinceHint = stats.since ? `Tracked since ${formatDate(stats.since)}` : "Tracking just started";
   const hasGhost = points.some((p) => p.ghost !== undefined);
   const ghostLast = hasGhost ? points[points.length - 1].ghost : undefined;
   const toggle = (key: SeriesKey) =>
@@ -221,7 +222,6 @@ export function BenchmarkPanel() {
       // Always keep at least one line on screen.
       return next.portfolio || next.spy || (hasGhost && next.ghost) ? next : v;
     });
-  const beat = stats.outperformancePct >= 0;
 
   return (
     <Panel strong className="stack gap-md">
@@ -231,8 +231,9 @@ export function BenchmarkPanel() {
             <Trophy size={17} /> You vs. S&amp;P 500
           </strong>
           <span className="small muted">
-            Both indexed to 100{stats.since ? ` since ${formatDate(stats.since)}` : ""}. Deposits and withdrawals are
-            excluded from your return.
+            Both indexed to 100{stats.since ? ` since ${formatDate(stats.since)}` : ""}, when Sentia started tracking.
+            Time-weighted, so deposits and withdrawals are excluded. This differs from the open-position P/L above,
+            which compares current prices with what you paid.
           </span>
         </div>
         <Legend visible={visible} onToggle={toggle} showGhost={hasGhost} />
@@ -247,13 +248,18 @@ export function BenchmarkPanel() {
       ) : null}
 
       <div className="bench-stats">
-        <MiniStat label="Your return" value={formatPercent(stats.totalReturnPct, true)} toneClass={tone(stats.totalReturnPct)} />
-        <MiniStat label="SPY return" value={formatPercent(stats.spyReturnPct, true)} toneClass={tone(stats.spyReturnPct)} />
         <MiniStat
-          label="Outperformance"
+          label="Your return (since start)"
+          value={formatPercent(stats.totalReturnPct, true)}
+          toneClass={tone(stats.totalReturnPct)}
+          hint={sinceHint}
+        />
+        <MiniStat label="SPY (since start)" value={formatPercent(stats.spyReturnPct, true)} toneClass={tone(stats.spyReturnPct)} hint={sinceHint} />
+        <MiniStat
+          label="Vs. market"
           value={`${formatPercent(stats.outperformancePct, true).replace("%", "")} pts`}
           toneClass={tone(stats.outperformancePct)}
-          hint={points.length >= 2 ? (beat ? "Ahead of the market" : "Behind the market") : undefined}
+          hint={points.length >= 2 ? marketStandingLabel(stats.outperformancePct) : undefined}
         />
         <MiniStat
           label="Max drawdown"
@@ -263,7 +269,7 @@ export function BenchmarkPanel() {
         <MiniStat
           label="Win rate"
           value={winRate.percent === null ? "—" : formatPercent(winRate.percent, false, 0)}
-          hint={winRate.closed ? `${winRate.wins} of ${winRate.closed} closed trades` : "No closed trades yet"}
+          hint={winRateHint(winRate)}
         />
       </div>
     </Panel>
@@ -283,7 +289,7 @@ export function BenchmarkCard() {
           <Trophy size={17} /> You vs. S&amp;P 500
         </strong>
         <span className="row gap-sm small muted">
-          <span className={tone(stats.totalReturnPct)}>You {formatPercent(stats.totalReturnPct, true)}</span>·
+          <span className={tone(stats.totalReturnPct)}>You (since start) {formatPercent(stats.totalReturnPct, true)}</span>·
           <span className={tone(stats.spyReturnPct)}>SPY {formatPercent(stats.spyReturnPct, true)}</span>
           <ArrowRight size={15} />
         </span>

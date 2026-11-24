@@ -192,7 +192,7 @@ test("5 planned buys, 3 reviews and 3 stock sectors complete their challenges", 
   assert.deepEqual(heldSectors(["AAPL", "JPM", "VTI", "BND", "ZZZZ"]).sort(), ["Financials", "Technology"]);
   assert.equal(byId["three-sectors"].done, false); // AAPL + JPM left (VTI/VXUS/BND don't count)
   const ids = newlyEarned(s, progress);
-  assert.deepEqual(ids.sort(), ["planned-trades", "review-trades"]);
+  assert.deepEqual(ids.sort(), ["first-plan", "first-review", "planned-trades", "review-trades"]);
   s = awardBadges(s, ids);
   assert.deepEqual(newlyEarned(s, evaluateChallenges(s, summary)), []);
   assert.equal(awardBadges(s, ids), s); // idempotent

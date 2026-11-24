@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, CheckCircle2, FastForward, History, Info, RotateCcw, SkipForward, StepForward, TriangleAlert, Trophy } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, CalendarClock, CheckCircle2, FastForward, History, Info, RotateCcw, SkipForward, StepForward, TriangleAlert, Trophy } from "lucide-react";
 import { formatCurrency, formatNumber, formatPercent } from "@/lib/format";
 import { nameForSymbol } from "@/lib/market";
 import { useApp } from "@/lib/store";
@@ -25,6 +25,13 @@ import { parseAmount } from "@/lib/validation";
 import { BenchmarkChart } from "./benchmark-chart";
 import { Gauge } from "./discipline-card";
 import { EmptyState, Loading, Panel, PageHeader } from "./ui";
+
+/** "2026-10-27" → "Oct 27, 2026" (calendar date, no time-zone shift). */
+function formatDataDate(day: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!m) return day;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
 
 const SCENARIOS = listScenarios();
 
@@ -56,6 +63,11 @@ export function TimeMachineView() {
     <PageHeader
       title="Time Machine"
       subtitle="Replay real market history in a separate practice account. Your main portfolio is never touched."
+      action={
+        <span className="pill" title={`Bundled historical prices, fetched ${formatDataDate(TIME_MACHINE_FETCHED)}. Not live data.`}>
+          <CalendarClock size={13} /> Data as of {formatDataDate(TIME_MACHINE_FETCHED)}
+        </span>
+      }
     />
   );
 
@@ -327,8 +339,8 @@ function PastResults() {
 function SourceNote() {
   return (
     <p className="disclaimer">
-      Real daily closing prices (split-adjusted, dividends excluded) from {TIME_MACHINE_SOURCE.split(" (")[0]}, bundled with the app (fetched{" "}
-      {TIME_MACHINE_FETCHED}). Trades fill at each day&apos;s close with no fees or slippage. Educational practice only — not investment advice.
+      Real daily closing prices (split-adjusted, dividends excluded) from {TIME_MACHINE_SOURCE.split(" (")[0]}, bundled with the app (data as of{" "}
+      {formatDataDate(TIME_MACHINE_FETCHED)}; not updated live). Trades fill at each day&apos;s close with no fees or slippage. Educational practice only — not investment advice.
     </p>
   );
 }

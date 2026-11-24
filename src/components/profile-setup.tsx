@@ -163,7 +163,7 @@ function ProfileSetupDialog({
             </h2>
             <LevelSummary assessment={assessment} />
             <span className="small dim">
-              The coach pitches its explanations at this level. It updates as you practise, and you can redo setup anytime from Settings.
+              The coach pitches its explanations at this level. It updates as you practice, and you can redo setup anytime from Settings.
             </span>
           </div>
         ) : null}

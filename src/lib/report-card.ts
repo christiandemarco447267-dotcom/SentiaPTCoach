@@ -10,7 +10,7 @@ import { round2 } from "./portfolio";
 import { assessState, type ExperienceTier } from "./experience";
 import type { AppState, PerfSnapshot, ReportTrade, Transaction, WeeklyReport } from "./types";
 import { LIMITS } from "./validation";
-import { formatPercent } from "./format";
+import { formatPercent, inSentence } from "./format";
 
 const DAY = 86_400_000;
 const ms = (iso: string) => new Date(iso).getTime();
@@ -126,7 +126,7 @@ export function buildWeeklyReport(state: AppState, key: string): ReportDraft {
   const biasCounts = new Map<BiasKey, number>();
   for (const e of biases) biasCounts.set(e.bias, (biasCounts.get(e.bias) ?? 0) + 1);
   if (biases.length === 0 && trades.length) notes.push("No bias flags: no FOMO, revenge or panic patterns spotted.");
-  for (const [bias, n] of biasCounts) notes.push(`${n} possible ${BIAS_INFO[bias].label.toLowerCase()} trade${n === 1 ? "" : "s"} flagged.`);
+  for (const [bias, n] of biasCounts) notes.push(`Possible ${inSentence(BIAS_INFO[bias].label)} flagged ${n} time${n === 1 ? "" : "s"}.`);
   if (trades.length > 15) notes.push(`${trades.length} trades is a lot for one week. Fewer, better-planned trades usually win.`);
   if (perf) {
     const diff = round2(perf.returnPct - perf.spyReturnPct);
@@ -174,7 +174,7 @@ export function coachTip(t: TipInput): string {
   if (t.buys > t.planned) return "Next week: before every buy, answer the three checklist questions (why, exit plan, risk). Writing the exit down first is what keeps a plan honest.";
   if (t.sells > t.reviewed) return "Next week: review each closed trade within a day. One sentence on what you'd repeat or avoid compounds faster than any single win.";
   if (t.trades > 15) return "Next week: try a cap of five trades. Fewer decisions leave more time to think each one through.";
-  if (t.perf && t.perf.returnPct < t.perf.spyReturnPct) return "Next week: compare each idea with simply holding an index fund. If you can't say why it should beat SPY, practise with a smaller size.";
+  if (t.perf && t.perf.returnPct < t.perf.spyReturnPct) return "Next week: compare each idea with simply holding an index fund. If you can't say why it should beat SPY, practice with a smaller size.";
   const goal = t.goals[0] ?? null;
   if (t.trades === 0 && t.tier === "beginner") return "Next week: place one small paper trade and write a sentence on why. Sentia will explain each step, and nothing real is at risk.";
   if (t.trades === 0 && goal !== "learn") return "Next week: pick one idea from your watchlist and write a short thesis before you trade it, even if you end up not buying.";
@@ -214,7 +214,7 @@ export function reportPrompt(r: Pick<WeeklyReport, "grade" | "score" | "returnPc
   const spy = r.spyReturnPct === null ? "not available" : formatPercent(r.spyReturnPct);
   return [
     `Write ONE short coaching tip (max 2 sentences) for my next week of paper trading, based on my weekly report card.`,
-    `Grade ${r.grade} (${r.score}/100). Trades: ${r.trades}. My return ${ret}, S&P 500 (SPY) ${spy}.`,
+    `Weekly grade ${r.grade} (${r.score}/100 weekly report-card points, not the Discipline Score). Trades: ${r.trades}. My return ${ret}, S&P 500 (SPY) ${spy}.`,
     `Notes: ${r.notes.join(" ")}`,
   ]
     .join(" ")

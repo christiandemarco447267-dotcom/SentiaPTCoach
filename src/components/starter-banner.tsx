@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Sparkles, X } from "lucide-react";
-import { formatCurrency } from "@/lib/format";
+import { freshStartWording } from "@/lib/format";
 import { freshStartAmount, showStarterNotice } from "@/lib/storage";
 import { useApp } from "@/lib/store";
 import { Dialog } from "./dialog";
@@ -15,7 +15,8 @@ export function StarterBanner() {
   if (!state || !showStarterNotice(state)) return null;
   const live = freshStartAmount(state, summary?.total);
   const amount = confirming ?? live;
-  const cash = formatCurrency(amount);
+  const wording = freshStartWording(amount, summary?.total);
+  const cash = wording.cash;
   return (
     <>
       <div className="panel starter-banner row wrap gap-md" role="region" aria-label="Sample starter portfolio">
@@ -26,7 +27,7 @@ export function StarterBanner() {
           <strong>This is a sample starter portfolio</strong>
           <span className="small muted">
             Sentia started you with VTI, VXUS and BND plus example theses so every screen has something to show. Keep it, or start
-            fresh with {cash} in cash (today&apos;s account value) and build your own.
+            fresh with {wording.phrase} and build your own.
           </span>
         </div>
         <div className="row wrap gap-sm banner-actions">

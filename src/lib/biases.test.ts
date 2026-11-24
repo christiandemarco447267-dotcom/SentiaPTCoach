@@ -124,3 +124,33 @@ test("a planned buy right after a loss is not called a revenge trade", () => {
   ]);
   assert.equal(events.filter((e) => e.bias === "revenge").length, 0);
 });
+
+test("trade-page nudge uses the scored rule: planned and starter buys get no FOMO/revenge check", () => {
+  const history = [tx("buy", "TSLA", 0, 200), tx("sell", "TSLA", 2, 150, { realizedGain: -500 })];
+  const now = T0 + 3 * H;
+  const cand = { side: "buy" as const, symbol: "VXUS", shares: 5, price: 70, dayChange: 3.8 };
+  const plan = { why: "Diversify abroad", exit: "Sell if my thesis breaks", risk: 50 };
+
+  // Planned buy: no nudge, and Insights scores the same trade with 0 flags.
+  assert.deepEqual(previewTradeBiases(history, { ...cand, plan }, now), []);
+  const placed = tx("buy", "VXUS", 3, 70, { dayChange: 3.8, plan });
+  assert.equal(detectBiasEvents([...history, placed]).filter((e) => e.txId === placed.id).length, 0);
+
+  // Starter trade: never flagged.
+  assert.deepEqual(previewTradeBiases(history, { ...cand, note: "Opening position" }, now), []);
+
+  // Checklist still to come: soft reminders only, saying it counts only if skipped.
+  const soft = previewTradeBiases(history, { ...cand, checklistPending: true }, now);
+  assert.deepEqual(soft.map((n) => n.bias).sort(), ["fomo", "revenge"]);
+  assert.ok(soft.every((n) => n.soft === true));
+  assert.match(soft[0].body, /won't count/);
+
+  // Unplanned (checklist off or skipped): a real bias check, and Insights counts it too.
+  const hard = previewTradeBiases(history, cand, now);
+  assert.ok(hard.length > 0 && hard.every((n) => !n.soft));
+  const skipped = tx("buy", "VXUS", 3, 70, { dayChange: 3.8 });
+  assert.deepEqual(
+    detectBiasEvents([...history, skipped]).filter((e) => e.txId === skipped.id).map((e) => e.bias).sort(),
+    hard.map((n) => n.bias).sort(),
+  );
+});

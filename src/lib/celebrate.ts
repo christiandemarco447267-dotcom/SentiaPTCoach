@@ -14,15 +14,29 @@ export function prefersReducedMotion(): boolean {
 const COLORS = ["#a78bfa", "#8b5cf6", "#6366f1", "#2dd4bf", "#34d399", "#f9a8d4", "#fde68a"];
 let running = false;
 
-export function confetti(durationMs = 1600, count = 110) {
+/**
+ * The confetti layer never blocks or buries the page: clicks pass through, it sits
+ * below dialogs, drawers and toasts (z 55+), it's confined to the top band of the
+ * screen and drawn semi-transparent, and it's short.
+ */
+export const CONFETTI = {
+  durationMs: 1100,
+  count: 70,
+  maxAlpha: 0.7,
+  /** Share of the viewport height the burst is confined to (from the top). */
+  bandHeight: 0.4,
+  style: "position:fixed;left:0;top:0;width:100vw;height:40vh;pointer-events:none;z-index:50",
+} as const;
+
+export function confetti(durationMs: number = CONFETTI.durationMs, count: number = CONFETTI.count) {
   if (typeof document === "undefined" || running || prefersReducedMotion()) return;
   running = true;
   const canvas = document.createElement("canvas");
   canvas.setAttribute("aria-hidden", "true");
-  canvas.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:9999";
+  canvas.style.cssText = CONFETTI.style;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   canvas.width = window.innerWidth * dpr;
-  canvas.height = window.innerHeight * dpr;
+  canvas.height = window.innerHeight * CONFETTI.bandHeight * dpr;
   document.body.appendChild(canvas);
   const ctx = canvas.getContext("2d");
   if (!ctx) {
@@ -32,12 +46,12 @@ export function confetti(durationMs = 1600, count = 110) {
   }
   ctx.scale(dpr, dpr);
   const W = window.innerWidth;
-  const H = window.innerHeight;
+  const H = window.innerHeight * CONFETTI.bandHeight;
   const parts = Array.from({ length: count }, () => ({
-    x: W / 2 + (Math.random() - 0.5) * W * 0.3,
-    y: H * 0.35,
-    vx: (Math.random() - 0.5) * 11,
-    vy: -Math.random() * 11 - 4,
+    x: W / 2 + (Math.random() - 0.5) * W * 0.4,
+    y: H * 0.7,
+    vx: (Math.random() - 0.5) * 10,
+    vy: -Math.random() * 8 - 3,
     size: 5 + Math.random() * 6,
     rot: Math.random() * Math.PI,
     vr: (Math.random() - 0.5) * 0.3,
@@ -55,7 +69,7 @@ export function confetti(durationMs = 1600, count = 110) {
       p.y += p.vy;
       p.rot += p.vr;
       ctx.save();
-      ctx.globalAlpha = fade;
+      ctx.globalAlpha = fade * CONFETTI.maxAlpha;
       ctx.translate(p.x, p.y);
       ctx.rotate(p.rot);
       ctx.fillStyle = p.color;

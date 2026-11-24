@@ -1,7 +1,7 @@
 // Bias Radar: rule-based detection of common behavioural trading biases from the
 // ledger (pure; unit-tested). Educational heuristics only — they flag patterns
 // worth reflecting on, not mistakes, and never block a trade.
-import type { Transaction } from "./types";
+import type { TradePlan, Transaction } from "./types";
 import { normalizeSymbol } from "./validation";
 import { formatPercent } from "./format";
 
@@ -231,9 +231,27 @@ export type TradeCandidate = {
   dayChange?: number;
   /** Average cost of the current position (sells), to estimate the realized result. */
   avgCost?: number;
+  /** The plan (pre-trade checklist answers) this buy will carry. A planned buy is scored like Insights scores it: no FOMO/revenge. */
+  plan?: TradePlan;
+  /**
+   * The pre-trade checklist will be asked before this buy goes through. FOMO/revenge
+   * only count if it is skipped, so those come back as soft reminders, not bias checks.
+   */
+  checklistPending?: boolean;
+  /** The transaction note the trade will carry (starter "Opening position" trades are never flagged). */
+  note?: string;
 };
 
-export type BiasNudge = { bias: BiasKey; title: string; body: string };
+export type BiasNudge = {
+  bias: BiasKey;
+  title: string;
+  body: string;
+  /** True when this would only count if the pre-trade checklist is skipped (a reminder, not a flag). */
+  soft?: boolean;
+};
+
+/** Biases a written plan (why + exit) clears — the same rule detectBiasEvents applies. */
+const PLAN_CLEARS: readonly BiasKey[] = ["fomo", "revenge"];
 
 /** Gentle, non-blocking nudges for a trade the user is about to place. */
 export function previewTradeBiases(transactions: Transaction[], candidate: TradeCandidate, now: number = Date.now()): BiasNudge[] {
@@ -248,12 +266,25 @@ export function previewTradeBiases(transactions: Transaction[], candidate: Trade
     price: candidate.price,
     amount: candidate.shares * candidate.price,
     cashAfter: 0,
-    note: "",
+    note: candidate.note ?? "",
     createdAt: new Date(now).toISOString(),
+    ...(candidate.side === "buy" && candidate.plan ? { plan: candidate.plan } : {}),
     ...(candidate.dayChange !== undefined ? { dayChange: candidate.dayChange } : {}),
     ...(realizedGain !== undefined ? { realizedGain } : {}),
   };
+  const pending = candidate.side === "buy" && !!candidate.checklistPending && !isPlannedBuy(probe);
   return detectBiasEvents([...transactions, probe])
     .filter((e) => e.txId === probe.id)
-    .map((e) => ({ bias: e.bias, title: BIAS_INFO[e.bias].label, body: `${e.detail.replace(/^Bought|^Sold/, (w) => (w === "Bought" ? "Buying" : "Selling"))} ${BIAS_INFO[e.bias].tip}` }));
+    .map((e) => {
+      const detail = e.detail.replace(/^Bought|^Sold/, (w) => (w === "Bought" ? "Buying" : "Selling"));
+      if (pending && PLAN_CLEARS.includes(e.bias)) {
+        return {
+          bias: e.bias,
+          title: BIAS_INFO[e.bias].label,
+          soft: true,
+          body: `${detail.replace(/\.$/, "")} — answer the checklist's "why" and exit plan and this won't count as a ${BIAS_INFO[e.bias].label.toLowerCase()} in Insights. Skip it and it will.`,
+        };
+      }
+      return { bias: e.bias, title: BIAS_INFO[e.bias].label, body: `${detail} ${BIAS_INFO[e.bias].tip}` };
+    });
 }

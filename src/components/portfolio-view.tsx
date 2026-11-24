@@ -86,15 +86,15 @@ export function PortfolioView() {
                     </div>
                     <div className="row between wrap gap-sm" style={{ marginTop: 6 }}>
                       <select
-                        className="select"
-                        style={{ maxWidth: 220 }}
+                        className="select thesis-select"
+                        title={linkedThesis ? `${linkedThesis.symbol} · ${linkedThesis.title}` : "No thesis linked"}
                         aria-label={`Link a thesis to ${holding.symbol}`}
                         value={holding.thesisId ?? ""}
                         onChange={(e) => actions.linkHoldingToThesis(holding.id, e.target.value || undefined)}
                       >
                         <option value="">No thesis linked</option>
                         {state.theses.map((thesis) => (
-                          <option key={thesis.id} value={thesis.id}>
+                          <option key={thesis.id} value={thesis.id} title={`${thesis.symbol} · ${thesis.title}`}>
                             {thesis.symbol} · {thesis.title}
                           </option>
                         ))}
@@ -107,7 +107,7 @@ export function PortfolioView() {
                         Trade
                       </Link>
                     </div>
-                    {linkedThesis ? <span className="small dim">Thesis: {linkedThesis.title}</span> : null}
+                    {linkedThesis ? <span className="small dim thesis-full">Thesis: {linkedThesis.title}</span> : null}
                   </div>
                   <Sparkline symbol={holding.symbol} />
                 </div>

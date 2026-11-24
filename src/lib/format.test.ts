@@ -70,3 +70,14 @@ test("formatShareCount pluralizes", () => {
   assert.equal(formatShareCount(1000), "1,000 shares");
   assert.equal(formatShareCount(Number.NaN), "0 shares");
 });
+
+test("Start fresh wording: whole dollars, no .00, and says when it was rounded", async () => {
+  const { freshStartWording, formatWholeDollars } = await import("./format");
+  assert.equal(formatWholeDollars(47_079), "$47,079");
+  const w = freshStartWording(47_079, 47_079.49);
+  assert.equal(w.cash, "$47,079");
+  assert.equal(w.rounded, true);
+  assert.equal(w.phrase, "about $47,079 in cash (today's account value, rounded)");
+  assert.doesNotMatch(w.phrase, /\.00/);
+  assert.equal(freshStartWording(25_000, 25_000).phrase, "$25,000 in cash (today's account value)");
+});

@@ -5,15 +5,17 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeftRight, MessageCircle, Sparkles, Target } from "lucide-react";
 import { track } from "@/lib/analytics";
+import { assessState } from "@/lib/experience";
 import { ruleBasedAnswer } from "@/lib/coach";
 import { formatCurrency, formatNumber } from "@/lib/format";
-import { GOAL_OPTIONS } from "@/lib/goals";
+import { DEFAULT_AMOUNT, GOAL_OPTIONS, picksForGoals } from "@/lib/goals";
 import { demoQuote, nameForSymbol } from "@/lib/market";
 import { floorShares } from "@/lib/position-size";
 import { quoteMap } from "@/lib/portfolio";
 import { SIM_DISCLAIMER } from "@/lib/site";
 import { useApp } from "@/lib/store";
 import type { PracticeGoal } from "@/lib/types";
+import { MultiChoice } from "./multi-choice";
 
 /**
  * Guided first session (~60 seconds): 1) pick a practice goal, 2) make a first
@@ -26,12 +28,6 @@ const STEPS = [
   { key: "coach", icon: MessageCircle, label: "Meet the coach" },
 ] as const;
 
-const PICKS: Record<PracticeGoal, string[]> = {
-  "beat-market": ["VOO", "AAPL", "MSFT"],
-  plan: ["AAPL", "VOO", "NVDA"],
-  diversify: ["SCHD", "VXUS", "AAPL"],
-  learn: ["VOO", "AAPL", "SCHD"],
-};
 const AMOUNTS = [250, 500, 1000];
 
 export function OnboardingTour() {
@@ -43,10 +39,10 @@ export function OnboardingTour() {
 function GuidedSession() {
   const { state, summary, quotes, market, closeTour, actions } = useApp();
   const [step, setStep] = useState(0);
-  const [goal, setGoal] = useState<PracticeGoal | null>(state?.profile.goal ?? null);
-  const picks = PICKS[goal ?? "learn"];
+  const [goals, setGoals] = useState<PracticeGoal[]>(() => [...(state?.profile.goals ?? [])]);
+  const picks = picksForGoals(goals);
   const [symbol, setSymbol] = useState(picks[0]);
-  const [amount, setAmount] = useState(500);
+  const [amount, setAmount] = useState(() => (state ? DEFAULT_AMOUNT[assessState(state).tier] : 500));
   const [why, setWhy] = useState("");
   const [bought, setBought] = useState<{ symbol: string; shares: number; price: number } | null>(null);
   const [error, setError] = useState("");
@@ -96,15 +92,16 @@ function GuidedSession() {
   const S = STEPS[step];
   const Icon = S.icon;
 
-  const chooseGoal = (g: PracticeGoal) => {
-    setGoal(g);
-    setSymbol(PICKS[g][0]);
+  const chooseGoals = (next: PracticeGoal[]) => {
+    setGoals(next);
+    const nextPicks = picksForGoals(next);
+    if (!nextPicks.includes(symbol)) setSymbol(nextPicks[0]);
   };
 
   const nextFromGoal = () => {
-    if (goal) {
+    if (goals.length) {
       try {
-        actions.setGoal(goal);
+        actions.setGoals(goals);
       } catch {
         // keep going
       }
@@ -165,20 +162,13 @@ function GuidedSession() {
                 What do you want to practise?
               </h2>
             </div>
-            <div className="stack gap-sm" role="group" aria-labelledby="guided-title">
-              {GOAL_OPTIONS.map((o) => (
-                <button key={o.value} type="button" className={clsx("choice", goal === o.value && "selected")} aria-pressed={goal === o.value} onClick={() => chooseGoal(o.value)}>
-                  <strong>{o.label}</strong>
-                  <span className="small muted">{o.hint}</span>
-                </button>
-              ))}
-            </div>
+            <MultiChoice options={GOAL_OPTIONS} selected={goals} onChange={chooseGoals} labelledBy="guided-title" min={1} />
             <p className="sim-disclaimer" role="note">
               {SIM_DISCLAIMER}
             </p>
             <div className="row between">
-              <span className="small dim">Your goal pins a matching challenge.</span>
-              <button type="button" className="btn btn-primary btn-sm" onClick={nextFromGoal} disabled={!goal}>
+              <span className="small dim">{goals.length > 1 ? "Your goals pin matching challenges." : "Your goal pins a matching challenge."}</span>
+              <button type="button" className="btn btn-primary btn-sm" onClick={nextFromGoal} disabled={!goals.length}>
                 Next
               </button>
             </div>

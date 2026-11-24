@@ -1,12 +1,16 @@
-import type { Profile } from "./types";
+import type { ExperienceSignal, FocusArea } from "./types";
 
-export const EXPERIENCE_OPTIONS: { value: NonNullable<Profile["experience"]>; label: string; hint: string }[] = [
+/** v6: pick up to 3 that describe you. */
+export const EXPERIENCE_OPTIONS: { value: ExperienceSignal; label: string; hint: string }[] = [
   { value: "new", label: "New to investing", hint: "Just getting started" },
   { value: "some", label: "Some experience", hint: "I know the basics" },
+  { value: "paper", label: "Tried paper trading", hint: "I've used a demo or practice account" },
+  { value: "retirement", label: "Have a retirement account", hint: "A 401(k), IRA or similar" },
   { value: "experienced", label: "Experienced", hint: "I invest regularly" },
+  { value: "active", label: "Active trader", hint: "I trade often, maybe options too" },
 ];
 
-export const FOCUS_OPTIONS: { value: NonNullable<Profile["focus"]>; label: string; hint: string }[] = [
+export const FOCUS_OPTIONS: { value: FocusArea; label: string; hint: string }[] = [
   { value: "learn", label: "Learn the basics", hint: "Understand how investing works" },
   { value: "discipline", label: "Build discipline", hint: "Invest with a repeatable process" },
   { value: "growth", label: "Track long-term growth", hint: "Follow a portfolio over time" },
@@ -22,12 +26,17 @@ export function initialsOf(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export function experienceLabel(value: Profile["experience"]): string {
+export function experienceLabel(value: ExperienceSignal | null | undefined): string {
   return EXPERIENCE_OPTIONS.find((o) => o.value === value)?.label ?? "";
 }
 
-export function focusLabel(value: Profile["focus"]): string {
+export function focusLabel(value: FocusArea | null | undefined): string {
   return FOCUS_OPTIONS.find((o) => o.value === value)?.label ?? "";
+}
+
+/** "Learn the basics, Build discipline" (labels of every pick, in pick order). */
+export function focusLabels(values: readonly FocusArea[]): string {
+  return values.map(focusLabel).filter(Boolean).join(", ");
 }
 
 /** WCAG relative luminance of a #rrggbb colour (0 = black, 1 = white). */

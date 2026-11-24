@@ -196,7 +196,7 @@ test("analytics only ever sends a bare page name", () => {
 
 test("coach context formats the user's numbers exactly and marks missing data", () => {
   let s = account();
-  s = saveProfile(s, { name: "Jane Secret", experience: null, focus: null, avatarColor: "#0d9488" } as Parameters<typeof saveProfile>[1]);
+  s = saveProfile(s, { name: "Jane Secret", experiences: [], focuses: [], avatarColor: "#0d9488" } as Parameters<typeof saveProfile>[1]);
   const quotes = [demo("AAPL", 205.5), demo("MSFT", 410)];
   const summary = summarizePortfolio(s, quotes);
   const ctx = buildCoachContext({ state: s, summary, quotes, now: Date.parse("2026-10-30T15:00:00Z") });
@@ -208,6 +208,8 @@ test("coach context formats the user's numbers exactly and marks missing data", 
   assert.match(ctx, /SELL 4 AAPL @ \$210\.00, mood: no mood tagged, realized \+\$40\.00/);
   assert.match(ctx, /Realized gain\/loss \(all time\): \+\$40\.00/);
   assert.match(ctx, /DISCIPLINE SCORE: \d+\/100/);
+  assert.match(ctx, /LEARNER\nExperience level: Beginner \(25\/100, setup not answered yet\)\nExplain at this level: Use plain words/);
+  assert.match(ctx, /Practice goals: not available\nFocus: not available/);
   assert.match(ctx, /THESES \(0\)\nNone written yet\./);
   assert.match(ctx, /PERFORMANCE VS S&P 500 \(SPY\)\nnot available — not enough history/);
   // No hallucination-prone gaps: nothing undefined/NaN, and no personal identifiers.
@@ -215,6 +217,13 @@ test("coach context formats the user's numbers exactly and marks missing data", 
   assert.ok(!ctx.includes("Jane"), "the profile name is never sent");
   assert.ok(ctx.length <= CONTEXT_MAX_CHARS);
   assert.equal(fmtShares(1234.5678912), "1,234.567891");
+  const ctx2 = buildCoachContext({
+    state: saveProfile(s, { experiences: ["experienced", "active"], focuses: ["growth"], goals: ["beat-market", "plan"] }),
+    summary,
+    quotes,
+  });
+  assert.match(ctx2, /Experience level: Advanced \(\d+\/100, from setup answers and practice history\)/);
+  assert.match(ctx2, /Practice goals: Beat the S&P 500, Trade with a plan\nFocus: Track long-term growth/);
 });
 
 test("coach context says when a holding has no price and stays under the size cap", () => {

@@ -7,6 +7,7 @@ import { benchmarkSeries, feedSegment } from "./benchmark";
 import { BIAS_INFO, detectBiasEvents, isDecisionTrade, type BiasKey } from "./biases";
 import { localDayKey } from "./market";
 import { round2 } from "./portfolio";
+import { assessState, type ExperienceTier } from "./experience";
 import type { AppState, PerfSnapshot, ReportTrade, Transaction, WeeklyReport } from "./types";
 import { LIMITS } from "./validation";
 import { formatPercent } from "./format";
@@ -148,7 +149,7 @@ export function buildWeeklyReport(state: AppState, key: string): ReportDraft {
     best,
     worst,
     notes: notes.slice(0, 6).map((n) => n.slice(0, 240)),
-    tip: coachTip({ buys: buys.length, planned, sells: sells.length, reviewed, biases: [...biasCounts.keys()], perf, trades: trades.length, goal: state.profile.goal }),
+    tip: coachTip({ buys: buys.length, planned, sells: sells.length, reviewed, biases: [...biasCounts.keys()], perf, trades: trades.length, goals: state.profile.goals, tier: assessState(state).tier }),
     tipSource: "coach",
   };
 }
@@ -161,7 +162,10 @@ type TipInput = {
   biases: BiasKey[];
   perf: { returnPct: number; spyReturnPct: number } | null;
   trades: number;
-  goal: AppState["profile"]["goal"];
+  /** v6: up to 3 practice goals; the first one picked leads the tip. */
+  goals: readonly AppState["profile"]["goals"][number][];
+  /** v6: derived experience tier (shapes the no-trades tip for beginners). */
+  tier?: ExperienceTier;
 };
 
 /** The built-in coach's one tip for next week: the weakest habit first. */
@@ -171,8 +175,10 @@ export function coachTip(t: TipInput): string {
   if (t.sells > t.reviewed) return "Next week: review each closed trade within a day. One sentence on what you'd repeat or avoid compounds faster than any single win.";
   if (t.trades > 15) return "Next week: try a cap of five trades. Fewer decisions leave more time to think each one through.";
   if (t.perf && t.perf.returnPct < t.perf.spyReturnPct) return "Next week: compare each idea with simply holding an index fund. If you can't say why it should beat SPY, practise with a smaller size.";
-  if (t.trades === 0 && t.goal !== "learn") return "Next week: pick one idea from your watchlist and write a short thesis before you trade it, even if you end up not buying.";
-  switch (t.goal) {
+  const goal = t.goals[0] ?? null;
+  if (t.trades === 0 && t.tier === "beginner") return "Next week: place one small paper trade and write a sentence on why. Sentia will explain each step, and nothing real is at risk.";
+  if (t.trades === 0 && goal !== "learn") return "Next week: pick one idea from your watchlist and write a short thesis before you trade it, even if you end up not buying.";
+  switch (goal) {
     case "diversify":
       return "Next week: check your sector mix on the Allocation page and see whether one area now dominates.";
     case "beat-market":

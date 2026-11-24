@@ -5,6 +5,9 @@ import {
   AppStateSchema,
   DEFAULT_PROFILE,
   DEFAULT_SETTINGS,
+  EXPERIENCE_LEVELS,
+  FOCUS_AREAS,
+  PRACTICE_GOALS,
   SCHEMA_VERSION,
   Thesis,
   Transaction,
@@ -13,6 +16,7 @@ import {
   type TradePlan,
 } from "./types";
 import { LIMITS } from "./validation";
+import { cleanPicks } from "./multi-pick";
 
 export const STORAGE_KEY = "sentia.state.v2";
 // Older keys read as a fallback so data from before the rebrand isn't lost.
@@ -375,8 +379,10 @@ export function completeOnboarding(state: AppState): AppState {
 
 export type ProfileInput = {
   name?: string;
-  experience?: AppState["profile"]["experience"];
-  focus?: AppState["profile"]["focus"];
+  /** Up to 3 picks each (extras and duplicates are dropped). */
+  experiences?: readonly AppState["profile"]["experiences"][number][];
+  focuses?: readonly AppState["profile"]["focuses"][number][];
+  goals?: readonly AppState["profile"]["goals"][number][];
   avatarColor?: string;
 };
 
@@ -384,8 +390,9 @@ export type ProfileInput = {
 export function saveProfile(state: AppState, input: ProfileInput): AppState {
   const profile = {
     ...state.profile,
-    experience: input.experience !== undefined ? input.experience : state.profile.experience,
-    focus: input.focus !== undefined ? input.focus : state.profile.focus,
+    experiences: input.experiences !== undefined ? cleanPicks(input.experiences, EXPERIENCE_LEVELS) : state.profile.experiences,
+    focuses: input.focuses !== undefined ? cleanPicks(input.focuses, FOCUS_AREAS) : state.profile.focuses,
+    goals: input.goals !== undefined ? cleanPicks(input.goals, PRACTICE_GOALS) : state.profile.goals,
     avatarColor: input.avatarColor ?? state.profile.avatarColor,
   };
   return commit({
@@ -414,8 +421,9 @@ export function reviewTrade(state: AppState, txId: string, input: { rating: numb
   return commit({ ...state, transactions: state.transactions.map((t) => (t.id === txId ? { ...t, review } : t)) });
 }
 
-export function setPracticeGoal(state: AppState, goal: AppState["profile"]["goal"]): AppState {
-  return commit({ ...state, profile: { ...state.profile, goal } });
+/** v6: set the practice goals (up to 3; extras and duplicates are dropped). */
+export function setPracticeGoals(state: AppState, goals: readonly AppState["profile"]["goals"][number][]): AppState {
+  return commit({ ...state, profile: { ...state.profile, goals: cleanPicks(goals, PRACTICE_GOALS) } });
 }
 
 /** Record the highest Discipline Score milestone reached (never moves down). */
@@ -453,11 +461,12 @@ export function migrateUnknown(raw: unknown): AppState | null {
 
   if (raw && typeof raw === "object" && "version" in raw) {
     let data = raw as Record<string, unknown>;
-    // Step through each migration in order: v1 → v2 → v3 → v4 → v5.
+    // Step through each migration in order: v1 → v2 → v3 → v4 → v5 → v6.
     if (data.version === 1) data = migrateV1(data);
     if (data.version === 2) data = migrateV2(data);
     if (data.version === 3) data = migrateV3(data);
     if (data.version === 4) data = migrateV4(data);
+    if (data.version === 5) data = migrateV5(data);
     if (data.version === SCHEMA_VERSION) {
       const migrated = AppStateSchema.safeParse(data);
       if (migrated.success) return migrated.data;
@@ -527,11 +536,38 @@ function migrateV4(v4: Record<string, unknown>): Record<string, unknown> {
   return {
     ...v4,
     version: 5,
-    profile: { ...DEFAULT_PROFILE, ...profile, goal: null },
+    profile: { experience: null, focus: null, avatarColor: DEFAULT_PROFILE.avatarColor, ...profile, goal: null },
     settings: { ...DEFAULT_SETTINGS, ...settings },
     reports: [],
     badges: [],
     dips: [],
+  };
+}
+
+/** One saved single value (v5) → a 0- or 1-item list, keeping any list already there. */
+function toPickList(list: unknown, single: unknown): unknown[] {
+  if (Array.isArray(list)) return list;
+  return single === null || single === undefined || single === "" ? [] : [single];
+}
+
+/**
+ * v5 → v6: the setup questions became multi-select (up to 3). The single
+ * `experience`, `focus` and `goal` values become 1-item `experiences`, `focuses`
+ * and `goals` lists, so no answer is lost. Unknown values are dropped.
+ */
+export function migrateV5(v5: Record<string, unknown>): Record<string, unknown> {
+  const profile = v5.profile && typeof v5.profile === "object" ? (v5.profile as Record<string, unknown>) : {};
+  const { experience, focus, goal, ...rest } = profile;
+  return {
+    ...v5,
+    version: 6,
+    profile: {
+      ...rest,
+      avatarColor: typeof rest.avatarColor === "string" ? rest.avatarColor : DEFAULT_PROFILE.avatarColor,
+      experiences: cleanPicks(toPickList(rest.experiences, experience), EXPERIENCE_LEVELS),
+      focuses: cleanPicks(toPickList(rest.focuses, focus), FOCUS_AREAS),
+      goals: cleanPicks(toPickList(rest.goals, goal), PRACTICE_GOALS),
+    },
   };
 }
 

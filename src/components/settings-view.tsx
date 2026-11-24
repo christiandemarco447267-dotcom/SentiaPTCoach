@@ -9,9 +9,11 @@ import { useAnalyticsConsent } from "./pilot-prompts";
 import { celebrate, prefersReducedMotion } from "@/lib/celebrate";
 import { useAuth } from "@/lib/auth";
 import { localDayKey } from "@/lib/market";
-import { experienceLabel, focusLabel, initialsOf, avatarInk } from "@/lib/profile";
+import { assessState } from "@/lib/experience";
+import { experienceLabel, focusLabels, initialsOf, avatarInk } from "@/lib/profile";
 import { useApp } from "@/lib/store";
 import { Loading, Panel, PageHeader } from "./ui";
+import { LevelSummary } from "./level-summary";
 import { AccountSecurity } from "./auth/account-security";
 import { AboutPanel, DeleteDataPanel } from "./delete-data";
 import { REAUTH_NOTICE_KEY } from "./auth/email-link-complete";
@@ -49,6 +51,7 @@ export function SettingsView() {
 
   if (!ready || !state) return <Loading />;
   const name = nameDraft ?? state.profileName;
+  const level = assessState(state);
 
   const saveName = (event: React.FormEvent) => {
     event.preventDefault();
@@ -112,7 +115,7 @@ export function SettingsView() {
             <UserRound size={18} /> <strong>Profile</strong>
           </span>
           <button className="btn btn-sm" onClick={openProfileSetup}>
-            Edit profile setup
+            Redo setup
           </button>
         </div>
 
@@ -123,12 +126,22 @@ export function SettingsView() {
           <div className="stack" style={{ gap: 2, minWidth: 0 }}>
             <strong>{state.profileName || "Unnamed investor"}</strong>
             <span className="small muted">
-              {[experienceLabel(state.profile.experience), focusLabel(state.profile.focus)]
+              {[state.profile.experiences.map(experienceLabel).join(", "), focusLabels(state.profile.focuses)]
                 .filter(Boolean)
                 .join(" · ") || "No experience or focus set yet"}
             </span>
           </div>
         </div>
+
+        <LevelSummary assessment={level} />
+        {!level.answered ? (
+          <span className="small muted">
+            Answer the setup questions for a sharper estimate.{" "}
+            <button type="button" className="text-link link-button" onClick={openProfileSetup}>
+              Start setup
+            </button>
+          </span>
+        ) : null}
 
         <form className="row wrap gap-sm" onSubmit={saveName}>
           <div className="field grow">

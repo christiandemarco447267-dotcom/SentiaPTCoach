@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { LIMITS, SYMBOL_REGEX } from "./validation";
 
-export const SCHEMA_VERSION = 5 as const;
+export const SCHEMA_VERSION = 6 as const;
 
 const isoDate = z.string().datetime();
 const uuid = z.string().uuid();
@@ -98,20 +98,40 @@ export const TransactionSchema = z.object({
 });
 export type Transaction = z.infer<typeof TransactionSchema>;
 
-export const EXPERIENCE_LEVELS = ["new", "some", "experienced"] as const;
+/**
+ * Self-reported experience picks (v6: multi-select, up to 3). The first three are
+ * the original v5 answers; the rest are extra signals that sharpen the level estimate.
+ */
+export const EXPERIENCE_LEVELS = ["new", "some", "experienced", "paper", "retirement", "active"] as const;
+export type ExperienceSignal = (typeof EXPERIENCE_LEVELS)[number];
 export const FOCUS_AREAS = ["learn", "discipline", "growth", "explore"] as const;
-/** v5: the practice goal picked in the guided first session. */
+export type FocusArea = (typeof FOCUS_AREAS)[number];
+/** v5: the practice goal picked in the guided first session (v6: up to 3). */
 export const PRACTICE_GOALS = ["beat-market", "plan", "diversify", "learn"] as const;
 export type PracticeGoal = (typeof PRACTICE_GOALS)[number];
 
+/** v6: every setup question allows up to this many picks. */
+export const MAX_SETUP_PICKS = 3;
+
+/** An array of distinct enum picks, at most MAX_SETUP_PICKS long (extras and duplicates are dropped, never rejected). */
+function picks<T extends readonly [string, ...string[]]>(values: T) {
+  return z
+    .array(z.enum(values))
+    .default([])
+    .transform((list) => [...new Set(list)].slice(0, MAX_SETUP_PICKS));
+}
+
 export const ProfileSchema = z.object({
-  experience: z.enum(EXPERIENCE_LEVELS).nullable().default(null),
-  focus: z.enum(FOCUS_AREAS).nullable().default(null),
+  /** v6 (was `experience`, a single value in v5). */
+  experiences: picks(EXPERIENCE_LEVELS),
+  /** v6 (was `focus`). */
+  focuses: picks(FOCUS_AREAS),
   avatarColor: z.string().trim().max(9).default("#0d9488"),
-  goal: z.enum(PRACTICE_GOALS).nullable().default(null),
+  /** v6 (was `goal`). */
+  goals: picks(PRACTICE_GOALS),
 });
-export const DEFAULT_PROFILE = { experience: null, focus: null, avatarColor: "#0d9488", goal: null } as const;
 export type Profile = z.infer<typeof ProfileSchema>;
+export const DEFAULT_PROFILE: Profile = { experiences: [], focuses: [], avatarColor: "#0d9488", goals: [] };
 
 const symbolField = z.string().trim().min(1).max(LIMITS.symbolMax).regex(SYMBOL_REGEX, "Invalid ticker symbol");
 

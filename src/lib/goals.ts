@@ -1,4 +1,5 @@
 // Practice goals picked in the guided first session (v5).
+import type { ExperienceTier } from "./experience";
 import type { PracticeGoal } from "./types";
 
 export const GOAL_OPTIONS: { value: PracticeGoal; label: string; hint: string }[] = [
@@ -11,3 +12,27 @@ export const GOAL_OPTIONS: { value: PracticeGoal; label: string; hint: string }[
 export function goalInfo(goal: PracticeGoal): { value: PracticeGoal; label: string; hint: string } {
   return GOAL_OPTIONS.find((g) => g.value === goal) ?? GOAL_OPTIONS[0];
 }
+
+/** Starter tickers for the guided first trade, per goal. */
+export const PICKS: Record<PracticeGoal, string[]> = {
+  "beat-market": ["VOO", "AAPL", "MSFT"],
+  plan: ["AAPL", "VOO", "NVDA"],
+  diversify: ["SCHD", "VXUS", "AAPL"],
+  learn: ["VOO", "AAPL", "SCHD"],
+};
+/** v6: the first trade's starting amount follows the derived experience level. */
+export const DEFAULT_AMOUNT: Record<ExperienceTier, number> = { beginner: 250, developing: 500, intermediate: 1000, advanced: 1000 };
+
+/** Up to 3 distinct starter tickers drawn from every goal picked (first goal first). */
+export function picksForGoals(goals: readonly PracticeGoal[]): string[] {
+  const out: string[] = [];
+  const lists = (goals.length ? goals : (["learn"] as PracticeGoal[])).map((g) => PICKS[g]);
+  for (let i = 0; out.length < 3 && i < 3; i++) {
+    for (const list of lists) {
+      const s = list[i];
+      if (s && !out.includes(s) && out.length < 3) out.push(s);
+    }
+  }
+  return out;
+}
+

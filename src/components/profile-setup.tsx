@@ -4,8 +4,11 @@ import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/lib/store";
 import { AVATAR_COLORS, EXPERIENCE_OPTIONS, FOCUS_OPTIONS, initialsOf, avatarInk } from "@/lib/profile";
+import { assessExperience, behaviorFromState } from "@/lib/experience";
 import type { ProfileInput } from "@/lib/storage";
-import type { Profile } from "@/lib/types";
+import type { ExperienceSignal, FocusArea, Profile } from "@/lib/types";
+import { LevelSummary } from "./level-summary";
+import { MultiChoice } from "./multi-choice";
 import { SIM_DISCLAIMER } from "@/lib/site";
 
 export function ProfileSetup() {
@@ -16,8 +19,10 @@ export function ProfileSetup() {
     <ProfileSetupDialog
       initialName={state.profileName}
       initialColor={state.profile.avatarColor || AVATAR_COLORS[0]}
-      initialExperience={state.profile.experience}
-      initialFocus={state.profile.focus}
+      initialExperiences={state.profile.experiences}
+      initialFocuses={state.profile.focuses}
+      goals={state.profile.goals}
+      behavior={behaviorFromState(state)}
       onSave={(input) => {
         actions.saveProfile(input);
         closeProfileSetup();
@@ -29,27 +34,32 @@ export function ProfileSetup() {
 function ProfileSetupDialog({
   initialName,
   initialColor,
-  initialExperience,
-  initialFocus,
+  initialExperiences,
+  initialFocuses,
+  goals,
+  behavior,
   onSave,
 }: {
   initialName: string;
   initialColor: string;
-  initialExperience: Profile["experience"];
-  initialFocus: Profile["focus"];
+  initialExperiences: readonly ExperienceSignal[];
+  initialFocuses: readonly FocusArea[];
+  goals: Profile["goals"];
+  behavior: ReturnType<typeof behaviorFromState>;
   onSave: (input: ProfileInput) => void;
 }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState(initialName);
   const [avatarColor, setAvatarColor] = useState(initialColor);
-  const [experience, setExperience] = useState<Profile["experience"]>(initialExperience);
-  const [focus, setFocus] = useState<Profile["focus"]>(initialFocus);
+  const [experiences, setExperiences] = useState<ExperienceSignal[]>([...initialExperiences]);
+  const [focuses, setFocuses] = useState<FocusArea[]>([...initialFocuses]);
 
-  const TOTAL = 3;
+  const TOTAL = 4;
   const isLast = step === TOTAL - 1;
   const initials = initialsOf(name) || "?";
 
-  const save = () => onSave({ name, avatarColor, experience, focus });
+  const save = () => onSave({ name, avatarColor, experiences, focuses });
+  const assessment = assessExperience({ experiences, focuses, goals }, behavior);
 
   // Escape behaves like "Skip" (saves what's entered so far and closes).
   const saveRef = useRef(save);
@@ -129,41 +139,32 @@ function ProfileSetupDialog({
 
         {step === 1 ? (
           <div className="stack gap-md">
-            <h2 style={{ fontSize: "1.4rem" }}>How much investing experience do you have?</h2>
-            <div className="stack gap-sm">
-              {EXPERIENCE_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={clsx("choice", experience === option.value && "selected")}
-                  aria-pressed={experience === option.value}
-                  onClick={() => setExperience(option.value)}
-                >
-                  <strong>{option.label}</strong>
-                  <span className="small muted">{option.hint}</span>
-                </button>
-              ))}
-            </div>
+            <h2 id="setup-exp-title" style={{ fontSize: "1.4rem" }}>
+              How much investing experience do you have?
+            </h2>
+            <span className="small muted">Pick up to 3 that describe you. Mixed answers are fine.</span>
+            <MultiChoice options={EXPERIENCE_OPTIONS} selected={experiences} onChange={setExperiences} labelledBy="setup-exp-title" />
           </div>
         ) : null}
 
         {step === 2 ? (
           <div className="stack gap-md">
-            <h2 style={{ fontSize: "1.4rem" }}>What&apos;s your main focus?</h2>
-            <div className="stack gap-sm">
-              {FOCUS_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={clsx("choice", focus === option.value && "selected")}
-                  aria-pressed={focus === option.value}
-                  onClick={() => setFocus(option.value)}
-                >
-                  <strong>{option.label}</strong>
-                  <span className="small muted">{option.hint}</span>
-                </button>
-              ))}
-            </div>
+            <h2 id="setup-focus-title" style={{ fontSize: "1.4rem" }}>
+              What do you want to focus on?
+            </h2>
+            <MultiChoice options={FOCUS_OPTIONS} selected={focuses} onChange={setFocuses} labelledBy="setup-focus-title" />
+          </div>
+        ) : null}
+
+        {step === 3 ? (
+          <div className="stack gap-md">
+            <h2 id="setup-level-title" style={{ fontSize: "1.4rem" }}>
+              Here&apos;s where you&apos;re starting
+            </h2>
+            <LevelSummary assessment={assessment} />
+            <span className="small dim">
+              The coach pitches its explanations at this level. It updates as you practise, and you can redo setup anytime from Settings.
+            </span>
           </div>
         ) : null}
 

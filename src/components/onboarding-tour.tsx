@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeftRight, MessageCircle, Sparkles, Target } from "lucide-react";
 import { track } from "@/lib/analytics";
 import { assessState } from "@/lib/experience";
-import { ruleBasedAnswer } from "@/lib/coach";
+import { quickStartCoachText } from "@/lib/quick-start";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import { DEFAULT_AMOUNT, GOAL_OPTIONS, picksForGoals } from "@/lib/goals";
 import { demoQuote, nameForSymbol } from "@/lib/market";
@@ -82,11 +82,11 @@ function GuidedSession() {
   const coachText = useMemo(() => {
     if (!state || !summary || step !== 2) return "";
     try {
-      return ruleBasedAnswer("What should I review this week?", { state, summary }).text;
+      return quickStartCoachText({ bought, cash: summary.cash, total: summary.total, holdings: summary.holdings.length, goals });
     } catch {
       return "";
     }
-  }, [state, summary, step]);
+  }, [state, summary, step, bought, goals]);
 
   if (!state) return null;
   const S = STEPS[step];
@@ -159,7 +159,7 @@ function GuidedSession() {
                 <Icon size={22} />
               </span>
               <h2 id="guided-title" style={{ fontSize: "1.35rem" }}>
-                What do you want to practise?
+                What do you want to practice?
               </h2>
             </div>
             <MultiChoice options={GOAL_OPTIONS} selected={goals} onChange={chooseGoals} labelledBy="guided-title" min={1} />
@@ -220,7 +220,7 @@ function GuidedSession() {
                   )}
                 </span>
                 <div className="field">
-                  <label htmlFor="guided-why">Why this one? (your plan, question 1 of 3)</label>
+                  <label htmlFor="guided-why">Why this one? (the reason in your trade plan)</label>
                   <input id="guided-why" className="input" maxLength={300} value={why} onChange={(e) => setWhy(e.target.value)} placeholder="e.g. I use their products every day" />
                   <span className="small dim">We&apos;ll fill in a starter exit plan (review in a week, or sell after a 10% drop) and a 10% risk amount.</span>
                 </div>
@@ -266,7 +266,7 @@ function GuidedSession() {
               </h2>
             </div>
             <p className="small muted" style={{ margin: 0 }}>
-              Ask Sentia reads your paper account and answers questions like &ldquo;What should I review this week?&rdquo; Here&apos;s what it says right now:
+              Ask Sentia reads your paper account and answers from your own numbers. Here&apos;s what it sees right now:
             </p>
             {coachText ? <div className="bubble bubble-coach guided-bubble">{coachText}</div> : null}
             <ul className="small muted" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>

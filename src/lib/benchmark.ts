@@ -167,13 +167,59 @@ export function maxDrawdownPct(values: number[]): number {
   return worst;
 }
 
-export type WinRate = { wins: number; closed: number; percent: number | null };
+/** |realized P/L| below half a cent is break-even: neither a win nor a loss. */
+export const BREAKEVEN_EPSILON = 0.005;
 
-/** Share of closed trades (sells) that realized a gain. */
+export type TradeOutcome = "win" | "loss" | "breakeven";
+
+export function tradeOutcome(realizedGain: number | undefined): TradeOutcome {
+  const g = realizedGain ?? 0;
+  if (Math.abs(g) < BREAKEVEN_EPSILON) return "breakeven";
+  return g > 0 ? "win" : "loss";
+}
+
+/**
+ * `closed` counts decided trades (wins + losses); break-even sells are counted
+ * separately so a $0.00 sell never drags the win rate to 0%.
+ */
+export type WinRate = { wins: number; losses: number; breakeven: number; closed: number; percent: number | null };
+
+/** Share of decided closed trades (sells) that realized a gain. Break-even sells are excluded. */
 export function winRate(transactions: Transaction[]): WinRate {
-  const closed = transactions.filter((tx) => tx.type === "sell" && tx.realizedGain !== undefined);
-  const wins = closed.filter((tx) => (tx.realizedGain ?? 0) > 0).length;
-  return { wins, closed: closed.length, percent: closed.length ? (wins / closed.length) * 100 : null };
+  const sells = transactions.filter((tx) => tx.type === "sell" && tx.realizedGain !== undefined);
+  let wins = 0;
+  let losses = 0;
+  let breakeven = 0;
+  for (const tx of sells) {
+    const o = tradeOutcome(tx.realizedGain);
+    if (o === "win") wins += 1;
+    else if (o === "loss") losses += 1;
+    else breakeven += 1;
+  }
+  const closed = wins + losses;
+  return { wins, losses, breakeven, closed, percent: closed ? (wins / closed) * 100 : null };
+}
+
+/** One-line description of a win rate, e.g. "1 of 2 decided trades · 1 break-even". */
+export function winRateHint(w: WinRate): string {
+  const be = w.breakeven ? `${w.breakeven} break-even` : "";
+  if (!w.closed) return be ? `${be} (not counted as a win or loss)` : "No closed trades yet";
+  return `${w.wins} of ${w.closed} closed trade${w.closed === 1 ? "" : "s"}${be ? ` · ${be}` : ""}`;
+}
+
+/** Outperformance within ±0.05 pts reads as even with the market. */
+export const EVEN_THRESHOLD_PTS = 0.05;
+
+export type MarketStanding = "ahead" | "even" | "behind";
+
+export function marketStanding(outperformancePct: number): MarketStanding {
+  if (Math.abs(outperformancePct) < EVEN_THRESHOLD_PTS) return "even";
+  return outperformancePct > 0 ? "ahead" : "behind";
+}
+
+export function marketStandingLabel(outperformancePct: number): string {
+  const s = marketStanding(outperformancePct);
+  return s === "even" ? "Even with the market" : s === "ahead" ? "Ahead of the market" : "Behind the market";
 }
 
 export type BenchmarkStats = {

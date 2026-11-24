@@ -11,7 +11,10 @@ import type { AppState, Badge, DipWatch, PracticeGoal, Quote } from "./types";
 import { LIMITS, normalizeSymbol } from "./validation";
 import { formatPercent } from "./format";
 
-export type ChallengeId = "beat-spy-month" | "planned-trades" | "hold-dip" | "three-sectors" | "review-trades";
+export type ChallengeId = "first-plan" | "first-review" | "beat-spy-month" | "planned-trades" | "hold-dip" | "three-sectors" | "review-trades";
+
+/** Quick first badges: earnable in a minute so a new account isn't stuck on "No badges yet". */
+export const STARTER_CHALLENGES: ChallengeId[] = ["first-plan", "first-review"];
 
 export type ChallengeDef = {
   id: ChallengeId;
@@ -23,6 +26,20 @@ export type ChallengeDef = {
 };
 
 export const CHALLENGES: ChallengeDef[] = [
+  {
+    id: "first-plan",
+    title: "Your first planned trade",
+    description: "Make one buy with the pre-trade checklist answered (why, exit plan, risk). Quick Start counts.",
+    badge: "First Plan",
+    goal: "learn",
+  },
+  {
+    id: "first-review",
+    title: "Your first trade review",
+    description: "Sell a position, then rate the trade and note one lesson in the journal.",
+    badge: "First Look",
+    goal: "learn",
+  },
   {
     id: "beat-spy-month",
     title: "Beat the S&P this month",
@@ -85,6 +102,12 @@ function monthRange(year: number, month: number): { start: number; end: number }
   return { start: new Date(year, month, 1).getTime(), end: new Date(year, month + 1, 1).getTime() };
 }
 
+/** How far through the month `now` is (0–1). */
+export function monthElapsed(range: { start: number; end: number }, now: number): number {
+  const span = range.end - range.start;
+  return span > 0 ? Math.max(0, Math.min(1, (now - range.start) / span)) : 0;
+}
+
 /** Distinct sectors held (excluding broad funds and unknown "Other"). */
 export function heldSectors(symbols: string[]): Sector[] {
   const out = new Set<Sector>();
@@ -115,6 +138,16 @@ export function evaluateChallenges(state: AppState, summary: PortfolioSummary | 
     });
 
     switch (def.id) {
+      case "first-plan": {
+        const n = trades.filter((t) => t.type === "buy" && t.plan).length;
+        const done = n >= 1 || earned.length > 0;
+        return base(done ? 1 : 0, 1, done, done ? "Done: your first buy had a written plan." : "Buy anything with the checklist answered to earn it.");
+      }
+      case "first-review": {
+        const n = trades.filter((t) => t.type === "sell" && t.review).length;
+        const done = n >= 1 || earned.length > 0;
+        return base(done ? 1 : 0, 1, done, done ? "Done: you reviewed a closed trade." : "After your next sell, rate it and write one lesson.");
+      }
       case "planned-trades": {
         const n = trades.filter((t) => t.type === "buy" && t.plan).length;
         return base(Math.min(n, 5), 5, n >= 5, n >= 5 ? "Five planned buys. Planning is now a habit." : `${n} of 5 buys had a plan.`);
@@ -154,23 +187,44 @@ export function evaluateChallenges(state: AppState, summary: PortfolioSummary | 
         const curPerf = periodReturns(state.snapshots, cur.start, now + 1);
         const daysLeft = Math.max(0, Math.ceil((cur.end - now) / DAY));
         let detail: string;
+        let ratio = 0;
         if (curPerf) {
           const diff = round2(curPerf.returnPct - curPerf.spyReturnPct);
-          detail = `This month: you ${formatPercent(curPerf.returnPct)} vs SPY ${formatPercent(curPerf.spyReturnPct)} (${diff >= 0 ? "ahead" : "behind"} by ${Math.abs(diff).toFixed(2)} pts), ${daysLeft} day${daysLeft === 1 ? "" : "s"} left.`;
+          const even = Math.abs(diff) < 0.05;
+          const where = even ? "even with SPY" : `${diff > 0 ? "ahead" : "behind"} by ${Math.abs(diff).toFixed(2)} pts`;
+          detail = `This month: you ${formatPercent(curPerf.returnPct)} vs SPY ${formatPercent(curPerf.spyReturnPct)} (${where}), ${daysLeft} day${daysLeft === 1 ? "" : "s"} left.`;
+          // The bar is the share of the month you've spent ahead of SPY so far: it only fills while you're actually ahead.
+          ratio = !even && diff > 0 ? monthElapsed(cur, now) : 0;
         } else {
           detail = "Not enough price history this month yet. Keep Sentia open now and then to record it.";
         }
         const alreadyPrev = badges.some((b) => b.id === `${def.id}:${prevKey}`);
-        const ahead = curPerf ? Math.max(0, Math.min(1, 0.5 + (curPerf.returnPct - curPerf.spyReturnPct) / 4)) : 0;
         return {
           ...base(0, 1, prevBeat || alreadyPrev, detail, `${def.id}:${prevKey}`),
-          ratio: ahead,
+          ratio,
         };
       }
       default:
         return base(0, 1, false, "");
     }
   });
+}
+
+/** What the "No badges yet" empty state points to: the quickest badge still open. */
+export function firstBadgeHint(progress: ChallengeProgress[]): { hint: string; label: string; href: string } {
+  const plan = progress.find((p) => p.def.id === "first-plan");
+  if (plan && !plan.done) {
+    return {
+      hint: "Your quickest badge: make one buy with the pre-trade checklist answered (why, exit plan, risk) to earn First Plan.",
+      label: "Make a planned buy",
+      href: "/app/trade",
+    };
+  }
+  const review = progress.find((p) => p.def.id === "first-review");
+  if (review && !review.done) {
+    return { hint: "Next quick badge: sell a position, then rate it and write one lesson to earn First Look.", label: "Open the journal", href: "/app/journal" };
+  }
+  return { hint: "Pick a challenge above. You'll get a little celebration when you finish it.", label: "See challenges", href: "/app/challenges" };
 }
 
 /** Badge ids that are complete but not yet recorded. */

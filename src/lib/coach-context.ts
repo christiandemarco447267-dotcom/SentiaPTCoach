@@ -4,7 +4,7 @@
 // gap to fill in. Raw state is never sent. Pure; unit-tested.
 import { benchmarkStats, feedSegment } from "./benchmark";
 import { BIAS_INFO, BIAS_KEYS, biasReport, isDecisionTrade } from "./biases";
-import { disciplineScore } from "./discipline";
+import { DISCIPLINE_NAME, disciplineBandsText, disciplineScore } from "./discipline";
 import { assessState, TIER_TONE } from "./experience";
 import { formatCurrency, formatPercent, formatSignedCurrency } from "./format";
 import { goalInfo } from "./goals";
@@ -57,7 +57,7 @@ export function buildCoachContext({ state, summary, quotes, now = Date.now() }: 
   const level = assessState(state);
   lines.push("", "LEARNER");
   lines.push(
-    `Experience level: ${level.label} (${level.score}/100${level.answered ? ", from setup answers and practice history" : ", setup not answered yet"})`,
+    `Experience level: ${level.label} (${level.answered ? "from setup answers and practice history" : "setup not answered yet"}; this is not a score, do not quote it as one)`,
   );
   lines.push(`Explain at this level: ${TIER_TONE[level.tier]}`);
   lines.push(`Practice goals: ${state.profile.goals.length ? state.profile.goals.map((g) => goalInfo(g).label).join(", ") : NA}`);
@@ -107,6 +107,7 @@ export function buildCoachContext({ state, summary, quotes, now = Date.now() }: 
   // ---- discipline
   const disc = disciplineScore(state, summary, now);
   lines.push("", `DISCIPLINE SCORE: ${Math.round(disc.score)}/100 (${disc.grade})`);
+  lines.push(`Call it "${DISCIPLINE_NAME}" exactly as the dashboard does; it is the only process score. Bands: ${disciplineBandsText()}.`);
   for (const p of disc.parts) lines.push(`- ${p.label}: ${p.points}/${p.max} — ${clip(p.detail, 120)}`);
 
   // ---- theses
@@ -129,7 +130,7 @@ export function buildCoachContext({ state, summary, quotes, now = Date.now() }: 
     const b = benchmarkStats(segment, state.transactions);
     lines.push(`Since ${day(b.since ?? segment[0].t)}: portfolio ${formatPercent(b.totalReturnPct, true)}, SPY ${formatPercent(b.spyReturnPct, true)}, difference ${formatPercent(b.outperformancePct, true)} (time-weighted; deposits/withdrawals excluded)`);
     lines.push(`Max drawdown: ${formatPercent(b.maxDrawdownPct)}`);
-    lines.push(`Win rate on closed trades: ${b.winRate.percent === null ? NA : `${formatPercent(b.winRate.percent)} (${b.winRate.wins} of ${b.winRate.closed})`}`);
+    lines.push(`Win rate on closed trades: ${b.winRate.percent === null ? NA : `${formatPercent(b.winRate.percent)} (${b.winRate.wins} of ${b.winRate.closed})`}${b.winRate.breakeven ? `; ${b.winRate.breakeven} break-even sell(s) not counted` : ""}`);
   }
 
   let text = lines.join("\n");

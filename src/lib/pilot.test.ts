@@ -208,7 +208,7 @@ test("coach context formats the user's numbers exactly and marks missing data", 
   assert.match(ctx, /SELL 4 AAPL @ \$210\.00, mood: no mood tagged, realized \+\$40\.00/);
   assert.match(ctx, /Realized gain\/loss \(all time\): \+\$40\.00/);
   assert.match(ctx, /DISCIPLINE SCORE: \d+\/100/);
-  assert.match(ctx, /LEARNER\nExperience level: Beginner \(25\/100, setup not answered yet\)\nExplain at this level: Use plain words/);
+  assert.match(ctx, /LEARNER\nExperience level: Beginner \(setup not answered yet; this is not a score, do not quote it as one\)\nExplain at this level: Use plain words/);
   assert.match(ctx, /Practice goals: not available\nFocus: not available/);
   assert.match(ctx, /THESES \(0\)\nNone written yet\./);
   assert.match(ctx, /PERFORMANCE VS S&P 500 \(SPY\)\nnot available — not enough history/);
@@ -222,7 +222,7 @@ test("coach context formats the user's numbers exactly and marks missing data", 
     summary,
     quotes,
   });
-  assert.match(ctx2, /Experience level: Advanced \(\d+\/100, from setup answers and practice history\)/);
+  assert.match(ctx2, /Experience level: Advanced \(from setup answers and practice history/);
   assert.match(ctx2, /Practice goals: Beat the S&P 500, Trade with a plan\nFocus: Track long-term growth/);
 });
 

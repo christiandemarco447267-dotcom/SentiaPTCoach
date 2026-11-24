@@ -95,7 +95,7 @@ export function closedTrades(transactions: Transaction[]): ClosedTrade[] {
       shares.set(sym, held + tx.shares);
     } else {
       const opened = openedAt.get(sym) ?? t;
-      out.push({ tx, symbol: sym, holdMs: Math.max(0, t - opened), win: (tx.realizedGain ?? 0) > 0 });
+      out.push({ tx, symbol: sym, holdMs: Math.max(0, t - opened), win: (tx.realizedGain ?? 0) >= 0.005 });
       const left = held - tx.shares;
       shares.set(sym, left > 1e-9 ? left : 0);
       if (left <= 1e-9) openedAt.delete(sym);

@@ -172,6 +172,8 @@ export const PendingOrderSchema = z.object({
   filledAt: isoDate.optional(),
   fillPrice: z.number().nonnegative().max(LIMITS.maxPrice).optional(),
   reason: z.string().trim().max(200).optional(),
+  /** Pre-trade checklist answers for a limit/stop buy, saved on the buy when it fills. */
+  plan: TradePlanSchema.optional(),
 });
 export type PendingOrder = z.infer<typeof PendingOrderSchema>;
 
@@ -238,6 +240,8 @@ export type Settings = z.infer<typeof SettingsSchema>;
 export const AchievementsSchema = z.object({
   /** Highest Discipline Score milestone already recorded (null = not yet baselined). */
   disciplineMilestone: z.number().int().min(0).max(100).nullable().default(null),
+  /** The "sample starter portfolio" banner was dismissed (kept, or replaced with cash). */
+  starterNoticeDismissed: z.boolean().optional(),
 });
 
 // ---- v5: weekly report cards, badges and "hold through a dip" tracking ----------

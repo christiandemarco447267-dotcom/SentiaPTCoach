@@ -113,3 +113,14 @@ export function formatRelativeDay(iso: string): string {
 function startOfLocalDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
+
+/**
+ * A Title-case label used mid-sentence: lowercases the first letter of ordinary
+ * words but keeps acronyms ("FOMO buy" stays "FOMO buy", "Revenge trade" → "revenge trade").
+ */
+export function inSentence(label: string): string {
+  return label
+    .split(" ")
+    .map((w) => (/^[A-Z0-9&]{2,}$/.test(w.replace(/[^A-Za-z0-9&]/g, "")) ? w : w.charAt(0).toLowerCase() + w.slice(1)))
+    .join(" ");
+}

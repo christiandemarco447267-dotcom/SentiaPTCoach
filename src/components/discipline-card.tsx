@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import { ArrowRight, ShieldCheck } from "lucide-react";
-import { disciplineScore, milestoneFor, weakestPart, type DisciplineScore } from "@/lib/discipline";
+import { DISCIPLINE_NAME, disciplineChangeWhy, disciplineColor, disciplineScore, disciplineSnapshot, milestoneFor, weakestPart, type DisciplineScore, type DisciplineSnapshot } from "@/lib/discipline";
 import { celebrateNow, useApp } from "@/lib/store";
 import { Panel } from "./ui";
 
@@ -17,11 +17,48 @@ export function useDiscipline(): DisciplineScore | null {
   }, [state, summary]);
 }
 
-function scoreColor(score: number): string {
-  if (score >= 85) return "#34d399";
-  if (score >= 70) return "#a78bfa";
-  if (score >= 50) return "#fbbf24";
-  return "#fb7185";
+const scoreColor = disciplineColor;
+
+const WHY_KEY = "sentia.disciplineWhy.v1";
+type StoredWhy = { n: number; snap: DisciplineSnapshot; why: string | null };
+
+function readWhy(): StoredWhy | null {
+  try {
+    const raw = typeof window === "undefined" ? null : window.localStorage.getItem(WHY_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as StoredWhy;
+    return typeof v?.n === "number" && v.snap && typeof v.snap.score === "number" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * "Why it changed" after a trade: compares the score with the one recorded at the
+ * previous trade count. Waits for quotes so a half-loaded portfolio never explains a fake move.
+ */
+function useDisciplineWhy(result: DisciplineScore | null): string | null {
+  const { state, market } = useApp();
+  const hasQuotes = market.quotes.length > 0;
+  const n = state ? state.transactions.filter((t) => t.type === "buy" || t.type === "sell").length : 0;
+  const why = useMemo(() => {
+    if (!result || !hasQuotes) return null;
+    const stored = readWhy();
+    if (!stored) return null;
+    if (stored.n === n) return stored.why;
+    return stored.n < n ? disciplineChangeWhy(stored.snap, result) : null;
+  }, [result, hasQuotes, n]);
+  useEffect(() => {
+    if (!result || !hasQuotes) return;
+    const stored = readWhy();
+    if (stored && stored.n === n) return;
+    try {
+      window.localStorage.setItem(WHY_KEY, JSON.stringify({ n, snap: disciplineSnapshot(result), why } satisfies StoredWhy));
+    } catch {
+      // storage full or blocked; the line is optional
+    }
+  }, [result, hasQuotes, n, why]);
+  return why;
 }
 
 export function Gauge({ score, size = 132, label = "Discipline" }: { score: number; size?: number; label?: string }) {
@@ -77,16 +114,22 @@ function Parts({ result }: { result: DisciplineScore }) {
 /** Prominent Discipline Score card. `compact` (Home) links to the full breakdown on Insights. */
 export function DisciplineCard({ compact }: { compact?: boolean }) {
   const result = useDiscipline();
+  const why = useDisciplineWhy(result);
   if (!result) return null;
   const weak = weakestPart(result);
   return (
     <Panel strong className="holo stack gap-md">
       <div className="row between wrap gap-sm">
         <strong className="row gap-sm">
-          <ShieldCheck size={18} /> Discipline Score
+          <ShieldCheck size={18} /> {DISCIPLINE_NAME}
         </strong>
         <span className="pill pill-primary">{result.grade}</span>
       </div>
+      {why ? (
+        <span className="small muted" role="status">
+          {why}
+        </span>
+      ) : null}
       <div className="row wrap gap-lg" style={{ alignItems: "center" }}>
         <Gauge score={result.score} />
         {compact ? (

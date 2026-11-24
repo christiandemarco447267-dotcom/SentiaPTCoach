@@ -20,6 +20,7 @@ import {
   Lightbulb,
   LineChart,
   Menu,
+  Search,
   NotebookPen,
   PieChart,
   Settings,
@@ -35,10 +36,13 @@ import { AuthGate } from "./auth/auth-gate";
 import { assetPath } from "@/lib/asset";
 import { initialsOf, avatarInk } from "@/lib/profile";
 import { assessState } from "@/lib/experience";
+import { isFirebaseConfigured } from "@/lib/firebase-config";
+import { NAV_SECTIONS, visibleNav } from "@/lib/nav";
 import { DemoPricesBadge, Loading, ToastHost } from "./ui";
 import { FeedbackButton } from "./feedback-sheet";
 import { FoldWatcher } from "./fold-watcher";
 import { PageViewTracker } from "./pilot-prompts";
+import { openSearchPalette } from "./command-palette";
 
 // Overlays and background watchers aren't needed for first paint: load them after hydration
 // so each page's first-load JavaScript stays small.
@@ -52,28 +56,29 @@ const AnalyticsNotice = dynamic(() => import("./pilot-prompts").then((m) => m.An
 const MicroSurvey = dynamic(() => import("./pilot-prompts").then((m) => m.MicroSurvey), { ssr: false });
 const KeyboardShortcuts = dynamic(() => import("./keyboard-shortcuts").then((m) => m.KeyboardShortcuts), { ssr: false });
 
-type NavItem = { href: string; label: string; icon: ComponentType<{ size?: number }>; section: string };
+// Icons per page; the list itself (and the Leagues rule) lives in lib/nav so the "/" palette shares it.
+const NAV_ICONS: Record<string, ComponentType<{ size?: number }>> = {
+  "/app": Home,
+  "/app/portfolio": Wallet,
+  "/app/trade": ArrowLeftRight,
+  "/app/markets": LineChart,
+  "/app/watchlist": Star,
+  "/app/allocate": PieChart,
+  "/app/thesis": NotebookPen,
+  "/app/insights": Lightbulb,
+  "/app/report-card": ClipboardList,
+  "/app/journal": BookOpenCheck,
+  "/app/coach": MessageCircle,
+  "/app/legends": Landmark,
+  "/app/time-machine": History,
+  "/app/challenges": Award,
+  "/app/leagues": Trophy,
+  "/app/settings": Settings,
+};
 
-const NAV: NavItem[] = [
-  { href: "/app", label: "Home", icon: Home, section: "Overview" },
-  { href: "/app/portfolio", label: "Portfolio", icon: Wallet, section: "Overview" },
-  { href: "/app/trade", label: "Trade", icon: ArrowLeftRight, section: "Overview" },
-  { href: "/app/markets", label: "Markets", icon: LineChart, section: "Overview" },
-  { href: "/app/watchlist", label: "Watchlist", icon: Star, section: "Overview" },
-  { href: "/app/allocate", label: "Allocation", icon: PieChart, section: "Overview" },
-  { href: "/app/thesis", label: "Theses", icon: NotebookPen, section: "Process" },
-  { href: "/app/insights", label: "Insights", icon: Lightbulb, section: "Process" },
-  { href: "/app/report-card", label: "Report card", icon: ClipboardList, section: "Process" },
-  { href: "/app/journal", label: "Journal", icon: BookOpenCheck, section: "Process" },
-  { href: "/app/coach", label: "Ask Sentia", icon: MessageCircle, section: "Process" },
-  { href: "/app/legends", label: "Legends", icon: Landmark, section: "Process" },
-  { href: "/app/time-machine", label: "Time Machine", icon: History, section: "Practice" },
-  { href: "/app/challenges", label: "Challenges", icon: Award, section: "Practice" },
-  { href: "/app/leagues", label: "Leagues", icon: Trophy, section: "Practice" },
-  { href: "/app/settings", label: "Settings", icon: Settings, section: "Practice" },
-];
-
-const SECTIONS = ["Overview", "Process", "Practice"] as const;
+// Leagues need accounts; guest-only builds hide it from the nav (the page still explains why if opened directly).
+const NAV = visibleNav(isFirebaseConfigured);
+const SECTIONS = NAV_SECTIONS;
 
 function useIsActive() {
   const pathname = usePathname();
@@ -89,7 +94,9 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
           <div className="nav-section" id={`nav-section-${section}`}>
             {section}
           </div>
-          {NAV.filter((item) => item.section === section).map(({ href, label, icon: Icon }) => (
+          {NAV.filter((item) => item.section === section).map(({ href, label }) => {
+            const Icon = NAV_ICONS[href] ?? Home;
+            return (
             <Link
               key={href}
               href={href}
@@ -100,7 +107,8 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
               <Icon size={18} />
               {label}
             </Link>
-          ))}
+            );
+          })}
         </div>
       ))}
     </nav>
@@ -162,6 +170,9 @@ function Sidebar() {
   return (
     <aside className="sidebar">
       <BrandMark />
+      <button type="button" className="nav-link nav-search" onClick={openSearchPalette} aria-label="Search tickers and pages (shortcut: /)">
+        <Search size={18} /> Search <kbd className="kbd" aria-hidden="true">/</kbd>
+      </button>
       <NavLinks />
       <div className="stack gap-sm" style={{ marginTop: "auto", padding: "0 4px 6px", alignItems: "flex-start" }}>
         <SyncBadge />
@@ -188,6 +199,9 @@ function MobileTopBar({
       <span className="grow" />
       <SyncBadge className="pill-compact" />
       <DemoPricesBadge className="pill-compact" />
+      <button type="button" className="btn btn-icon" onClick={openSearchPalette} aria-label="Search tickers and pages">
+        <Search size={20} />
+      </button>
       <button
         ref={menuButtonRef}
         type="button"

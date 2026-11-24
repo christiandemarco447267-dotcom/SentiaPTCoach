@@ -6,7 +6,7 @@ import { Bell, BellRing, ClipboardCheck, FileSpreadsheet, Moon, Smartphone, Sun,
 import { downloadText, holdingsCsv, transactionsCsv } from "@/lib/csv";
 import { GOAL_OPTIONS } from "@/lib/goals";
 import { localDayKey } from "@/lib/market";
-import { iosNeedsHomeScreen, notificationSupport, requestNotificationPermission, showSystemNotification, type NotifySupport } from "@/lib/notify";
+import { alertsHelp, iosNeedsHomeScreen, notificationSupport, requestNotificationPermission, showSystemNotification, type NotifySupport } from "@/lib/notify";
 import { backgroundPushConfigured, disableBackgroundPush, enableBackgroundPush, pushSubscribed, syncPushAlerts } from "@/lib/push";
 import { useApp } from "@/lib/store";
 import { THEME_PREFS, type ThemePref } from "@/lib/theme";
@@ -244,6 +244,52 @@ export function NotificationToggle() {
     >
       <BellRing size={15} /> Turn on phone alerts
     </button>
+  );
+}
+
+/** Watchlist note: when alerts fire, plus a button (or steps) to enable notifications. */
+export function AlertsHelpPanel() {
+  const { state, actions } = useApp();
+  const [permission, setPermission] = usePermission();
+  const iosHint = useSyncExternalStore(noop, iosNeedsHomeScreen, () => false);
+  const [dismissed, setDismissed] = useState(false);
+  if (!state || dismissed) return null;
+  const help = alertsHelp({ permission, iosHomeScreen: iosHint, pushConfigured: backgroundPushConfigured(), enabled: state.settings.alertNotifications });
+  if (help.hidden) return null;
+  return (
+    <section className="panel stack gap-sm alerts-help" aria-labelledby="alerts-help-title">
+      <div className="row between gap-sm">
+        <strong id="alerts-help-title" className="row gap-sm">
+          <Bell size={16} /> {help.title}
+        </strong>
+        <button type="button" className="btn btn-sm" onClick={() => setDismissed(true)} aria-label="Hide this note">
+          Hide
+        </button>
+      </div>
+      <span className="small muted">{help.body}</span>
+      {help.steps.length ? (
+        <ol className="small muted" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
+          {help.steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      ) : null}
+      {help.canRequest ? (
+        <button
+          type="button"
+          className="btn btn-primary"
+          style={{ width: "fit-content" }}
+          onClick={() => {
+            void requestNotificationPermission().then((p) => {
+              setPermission(p);
+              if (p === "granted") actions.updateSettings({ alertNotifications: true });
+            });
+          }}
+        >
+          <BellRing size={15} /> Enable notifications
+        </button>
+      ) : null}
+    </section>
   );
 }
 

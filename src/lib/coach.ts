@@ -9,7 +9,7 @@ import { moodExtremes, moodStats } from "./moods";
 import { realizedPnl, type PortfolioSummary } from "./portfolio";
 import { BROAD_FUND_SECTORS, sectorOf, sectorWeights, type Sector } from "./sectors";
 import type { AppState } from "./types";
-import { formatCurrency, formatPercent, formatShares, formatSignedPercent } from "./format";
+import { formatCurrency, formatPercent, formatShares, formatSignedPercent, inSentence } from "./format";
 
 export type CoachContext = { state: AppState; summary: PortfolioSummary; /** Defaults to Date.now(). */ now?: number };
 
@@ -212,7 +212,7 @@ export function ruleBasedAnswer(question: string, ctx: CoachContext): CoachReply
       const weak = weakestPart(d);
       return {
         intent,
-        text: `Your Discipline Score is ${d.score}/100 (${d.grade}).${weak ? ` The most room to improve is ${weak.label.toLowerCase()}: ${weak.tip}` : " Every part is close to full marks."}`,
+        text: `Your Discipline Score is ${d.score}/100 (${d.grade}).${weak ? ` The most room to improve is ${inSentence(weak.label)}: ${weak.tip}` : " Every part is close to full marks."}`,
         bullets: d.parts.map((p) => `${p.label}: ${Math.round(p.points)}/${p.max} — ${p.detail}`),
         links: [{ href: "/app/insights", label: "See the breakdown" }],
       };
@@ -229,7 +229,7 @@ export function ruleBasedAnswer(question: string, ctx: CoachContext): CoachReply
       if (d.bias.total) items.push(`Look back at the ${d.bias.total} Bias Radar flag${d.bias.total === 1 ? "" : "s"} from the last 30 days.`);
       const worst = [...summary.holdings].sort((a, b) => a.gainPercent - b.gainPercent)[0];
       if (worst && worst.gainPercent < -10) items.push(`${worst.symbol} is down ${Math.abs(worst.gainPercent).toFixed(0)}% — re-read its thesis and stress test.`);
-      if (!items.length) items.push("Your process looks solid. Try a Time Machine scenario to practise under pressure.");
+      if (!items.length) items.push("Your process looks solid. Try a Time Machine scenario to practice under pressure.");
       return { intent, text: "Here's what I'd put on this week's review list:", bullets: items.slice(0, 5), links: [{ href: "/app/insights", label: "Open Insights" }] };
     }
     case "mood": {
@@ -240,7 +240,7 @@ export function ruleBasedAnswer(question: string, ctx: CoachContext): CoachReply
       return {
         intent,
         text: best
-          ? `Your best results came from trades entered feeling ${best.label.toLowerCase()} (${money(best.realized)} realized).${worst ? ` The weakest: ${worst.label.toLowerCase()} (${money(worst.realized)}).` : ""}`
+          ? `Your best results came from trades entered feeling ${inSentence(best.label)} (${money(best.realized)} realized).${worst ? ` The weakest: ${inSentence(worst.label)} (${money(worst.realized)}).` : ""}`
           : `You've tagged ${tagged} trades, but none of them are closed yet.`,
         bullets: stats.filter((s) => s.trades).map((s) => `${s.emoji} ${s.label}: ${s.trades} trades, ${s.closed} closed${s.winRate !== null ? `, ${formatPercent(s.winRate, false, 0)} win rate` : ""}`),
         links: [{ href: "/app/insights", label: "Mood breakdown" }],
@@ -261,7 +261,7 @@ export function ruleBasedAnswer(question: string, ctx: CoachContext): CoachReply
       return {
         intent,
         text: b.points.length >= 2 ? `Since tracking began you're ${b.totalReturnPct >= 0 ? "up" : "down"} ${formatPercent(Math.abs(b.totalReturnPct))} vs SPY ${formatSignedPercent(b.spyReturnPct)}.` : "The benchmark chart is still collecting data — it fills in as prices update.",
-        bullets: [`Realized P/L: ${money(realizedPnl(state))}`, w.percent === null ? "No closed trades yet." : `Win rate: ${formatPercent(w.percent, false, 0)} (${w.wins}/${w.closed})`],
+        bullets: [`Realized P/L: ${money(realizedPnl(state))}`, w.percent === null ? (w.breakeven ? `${w.breakeven} break-even sell${w.breakeven === 1 ? "" : "s"}, no wins or losses yet.` : "No closed trades yet.") : `Win rate: ${formatPercent(w.percent, false, 0)} (${w.wins}/${w.closed})${w.breakeven ? `, ${w.breakeven} break-even` : ""}`],
         links: [{ href: "/app/portfolio", label: "You vs. S&P 500" }],
       };
     }
@@ -271,7 +271,7 @@ export function ruleBasedAnswer(question: string, ctx: CoachContext): CoachReply
         text: `I can't tell you what to buy or sell — Sentia is a practice tool, not an adviser. What I can do is help you test the idea: write a thesis, decide what would prove it wrong, and size it so one bad call can't sink the account.${held ? ` ${positionLine(held, summary.total)}` : ""}`,
         links: [
           { href: "/app/thesis", label: "Write a thesis" },
-          { href: "/app/time-machine", label: "Practise in the Time Machine" },
+          { href: "/app/time-machine", label: "Practice in the Time Machine" },
         ],
       };
     case "position":

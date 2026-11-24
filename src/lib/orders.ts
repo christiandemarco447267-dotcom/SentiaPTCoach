@@ -6,8 +6,8 @@
 // the ledger, so nothing ever happens silently.
 import { formatCurrency, formatNumber } from "./format";
 import { quoteMap, round2, TradeError } from "./portfolio";
-import { buy, commit, newId, nowIso, pushTransaction, sell } from "./storage";
-import type { AppState, PendingOrder, Quote, Transaction } from "./types";
+import { buy, cleanPlan, commit, newId, nowIso, pushTransaction, sell } from "./storage";
+import type { AppState, PendingOrder, Quote, TradePlan, Transaction } from "./types";
 import { isValidSymbol, LIMITS, normalizeSymbol } from "./validation";
 
 export type OrderSide = PendingOrder["side"];
@@ -19,6 +19,8 @@ export type OrderInput = {
   type: OrderType;
   shares: number;
   triggerPrice: number;
+  /** Pre-trade checklist answers (buys only); carried onto the buy when the order fills. */
+  plan?: TradePlan;
 };
 
 /** Human label: "Buy limit", "Sell stop", … */
@@ -98,6 +100,8 @@ export function placeOrder(state: AppState, input: OrderInput): AppState {
     createdAt: now,
     updatedAt: now,
   };
+  const plan = input.side === "buy" ? cleanPlan(input.plan) : null;
+  if (plan) order.plan = plan;
   return commit({ ...state, orders: pruneOrders([...state.orders, order]) });
 }
 
@@ -143,7 +147,7 @@ export function runFillEngine(state: AppState, quotes: Quote[]): { state: AppSta
     try {
       const traded =
         order.side === "buy"
-          ? buy(next, { symbol: order.symbol, shares: order.shares, price }, `${desc} filled`)
+          ? buy(next, { symbol: order.symbol, shares: order.shares, price }, `${desc} filled`, order.plan ? { plan: order.plan } : undefined)
           : sell(next, { symbol: order.symbol, shares: order.shares, price }, `${desc} filled`);
       const at = nowIso();
       const filled: PendingOrder = { ...order, status: "filled", filledAt: at, fillPrice: price, updatedAt: at };

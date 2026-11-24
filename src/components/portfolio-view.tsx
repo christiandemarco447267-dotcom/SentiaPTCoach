@@ -7,6 +7,7 @@ import { formatCurrency, formatNumber, formatPercent, formatSignedCurrency } fro
 import { realizedPnl } from "@/lib/portfolio";
 import { useApp } from "@/lib/store";
 import { CsvExport } from "./settings-extras";
+import { StarterBanner } from "./starter-banner";
 import { ChartSkeleton, EmptyState, Loading, Panel, PageHeader, Sparkline, Stat } from "./ui";
 
 const BenchmarkPanel = dynamic(() => import("./benchmark-chart").then((m) => m.BenchmarkPanel), {
@@ -39,14 +40,16 @@ export function PortfolioView() {
         }
       />
 
+      <StarterBanner />
+
       <div className="grid grid-4">
         <Stat label="Total value" value={formatCurrency(summary.total)} />
         <Stat label="Invested" value={formatCurrency(summary.investments)} />
         <Stat label="Cash" value={formatCurrency(summary.cash)} />
         <Stat
-          label="All-time P/L"
+          label="Open-position P/L"
           value={`${formatSignedCurrency(summary.gain)}`}
-          hint={formatPercent(summary.gainPercent, true)}
+          hint={`${formatPercent(summary.gainPercent, true)} vs. what you paid`}
           tone={summary.gain >= 0 ? "gain" : "loss"}
         />
       </div>

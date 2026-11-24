@@ -500,6 +500,10 @@ export type AppApi = {
     // v4
     updateSettings: (patch: Partial<Settings>) => void;
     recordDisciplineMilestone: (milestone: number) => void;
+    /** Hide the sample starter portfolio banner (keep the sample). */
+    dismissStarter: () => void;
+    /** Replace the sample starter portfolio with cash only. */
+    startFresh: () => void;
     setStressTest: (thesisId: string, input: stressOps.StressTestInput) => void;
     clearStressTest: (thesisId: string) => void;
     startReplay: (scenarioId: string) => void;
@@ -691,6 +695,8 @@ export function AppProvider({ mode: storageMode, children }: { mode: StorageMode
       exportJson: () => (current ? mutations.exportStateJson(current) : "{}"),
       updateSettings: (patch) => mutate((s) => mutations.updateSettings(s, patch)),
       recordDisciplineMilestone: (m) => mutate((s) => mutations.recordDisciplineMilestone(s, m)),
+      dismissStarter: () => mutate((s) => mutations.dismissStarterNotice(s)),
+      startFresh: () => mutate((s) => mutations.startFresh(s)),
       setStressTest: (thesisId, input) => mutate((s) => stressOps.setStressTest(s, thesisId, input)),
       clearStressTest: (thesisId) => mutate((s) => stressOps.clearStressTest(s, thesisId)),
       startReplay: (scenarioId) => mutate((s) => replayOps.startReplay(s, scenarioId)),

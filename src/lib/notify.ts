@@ -61,3 +61,57 @@ export async function showSystemNotification(notice: SystemNotice): Promise<bool
     return false;
   }
 }
+
+export type AlertsHelp = {
+  /** Nothing to explain (notifications on, or push configured and granted). */
+  hidden: boolean;
+  title: string;
+  body: string;
+  /** Show the "Enable notifications" button (the browser can still ask). */
+  canRequest: boolean;
+  steps: string[];
+};
+
+/**
+ * What the Watchlist says about alerts, by notification state. Honest about the limit:
+ * without Web Push, alerts are checked only while Sentia is open (or in the background).
+ */
+export function alertsHelp(input: { permission: NotifySupport; iosHomeScreen: boolean; pushConfigured: boolean; enabled: boolean }): AlertsHelp {
+  const { permission, iosHomeScreen, pushConfigured, enabled } = input;
+  const whenOpen = pushConfigured
+    ? "With notifications on, alerts can reach you even when Sentia is closed."
+    : "Price alerts are checked only while Sentia is open (or still running in the background). They can't fire when the app is fully closed.";
+  if (iosHomeScreen) {
+    return {
+      hidden: false,
+      title: "Alerts on iPhone and iPad need Sentia on your Home Screen",
+      body: `Safari only allows notifications for web apps added to the Home Screen (iOS 16.4 or later). ${whenOpen}`,
+      canRequest: false,
+      steps: ["Tap the Share button in Safari.", "Choose “Add to Home Screen”, then Add.", "Open Sentia from the new icon and tap “Enable notifications” here."],
+    };
+  }
+  if (permission === "granted" && enabled) return { hidden: true, title: "", body: "", canRequest: false, steps: [] };
+  if (permission === "unsupported") {
+    return { hidden: false, title: "In-app alerts only on this browser", body: `This browser doesn't support notifications, so alerts show inside Sentia. ${whenOpen}`, canRequest: false, steps: [] };
+  }
+  if (permission === "denied") {
+    return {
+      hidden: false,
+      title: "Notifications are blocked for Sentia",
+      body: `Alerts still show inside Sentia. ${whenOpen}`,
+      canRequest: false,
+      steps: [
+        "Open your browser's site settings for this page (the icon left of the address bar).",
+        "Set Notifications to Allow, then reload Sentia.",
+        "On iPhone: Settings → Notifications → Sentia (Home Screen app) → Allow Notifications.",
+      ],
+    };
+  }
+  return {
+    hidden: false,
+    title: permission === "granted" ? "Phone notifications are off" : "Get alerts as notifications",
+    body: whenOpen,
+    canRequest: true,
+    steps: [],
+  };
+}

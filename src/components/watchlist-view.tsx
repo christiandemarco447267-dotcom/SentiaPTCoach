@@ -11,7 +11,7 @@ import { useApp } from "@/lib/store";
 import type { PriceAlert } from "@/lib/types";
 import { isValidSymbol, normalizeSymbol, parseAmount } from "@/lib/validation";
 import { DemoPricesBadge, EmptyState, Loading, PageHeader, Panel, QuoteBadge, Sparkline, StarButton } from "./ui";
-import { NotificationToggle } from "./settings-extras";
+import { AlertsHelpPanel, NotificationToggle } from "./settings-extras";
 import { SymbolSearch } from "./symbol-search";
 
 function AlertForm({ symbol, price, onDone }: { symbol: string; price?: number; onDone: () => void }) {
@@ -164,6 +164,8 @@ export function WatchlistView() {
           </span>
         }
       />
+
+      <AlertsHelpPanel />
 
       <Panel className="stack gap-md">
         <form className="row wrap gap-sm" onSubmit={add}>

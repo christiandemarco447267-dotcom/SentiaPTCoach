@@ -2,16 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Award, CheckCircle2, ClipboardCheck, Layers, NotebookPen, ShieldCheck, Target, TrendingUp } from "lucide-react";
+import { Award, CheckCircle2, ClipboardCheck, Layers, NotebookPen, ShieldCheck, Sparkles, Star, Target, TrendingUp } from "lucide-react";
 import type { ComponentType } from "react";
-import { CHALLENGES, evaluateChallenges, newlyEarned, type ChallengeId } from "@/lib/challenges";
+import { CHALLENGES, evaluateChallenges, firstBadgeHint, newlyEarned, STARTER_CHALLENGES, type ChallengeId } from "@/lib/challenges";
 import { formatDate } from "@/lib/format";
 import { announceBadge, useApp } from "@/lib/store";
 import { goalInfo } from "@/lib/goals";
-import { prefersReducedMotion } from "@/lib/celebrate";
 import { EmptyState, Loading, Panel, PageHeader } from "./ui";
 
 const ICONS: Record<ChallengeId, ComponentType<{ size?: number }>> = {
+  "first-plan": Sparkles,
+  "first-review": Star,
   "beat-spy-month": TrendingUp,
   "planned-trades": ClipboardCheck,
   "hold-dip": ShieldCheck,
@@ -20,6 +21,8 @@ const ICONS: Record<ChallengeId, ComponentType<{ size?: number }>> = {
 };
 
 const LINKS: Record<ChallengeId, { href: string; label: string }> = {
+  "first-plan": { href: "/app/trade", label: "Make a planned buy" },
+  "first-review": { href: "/app/journal", label: "Review a trade" },
   "beat-spy-month": { href: "/app", label: "See you vs. S&P 500" },
   "planned-trades": { href: "/app/trade", label: "Plan a trade" },
   "hold-dip": { href: "/app/portfolio", label: "Check positions" },
@@ -58,8 +61,11 @@ export function ChallengesView() {
   const goals = state.profile.goals;
   // v6: every picked goal pins its challenge, in the order the goals were picked.
   const featured: string[] = goals.flatMap((g) => CHALLENGES.filter((c) => c.goal === g).slice(0, 1).map((c) => c.id as string));
-  const rank = (id: string) => (featured.includes(id) ? featured.indexOf(id) : featured.length);
+  // Unearned quick-start badges come first so a new account always has an easy next win.
+  const starterOpen = new Set(progress.filter((p) => STARTER_CHALLENGES.includes(p.def.id) && !p.done).map((p) => p.def.id as string));
+  const rank = (id: string) => (starterOpen.has(id) ? -1 : featured.includes(id) ? featured.indexOf(id) : featured.length + (STARTER_CHALLENGES.includes(id as ChallengeId) ? 1 : 0));
   const ordered = [...progress].sort((a, b) => rank(a.def.id) - rank(b.def.id));
+  const firstHint = firstBadgeHint(progress);
   const badges = [...state.badges].sort((a, b) => (a.earnedAt < b.earnedAt ? 1 : -1));
 
   return (
@@ -131,8 +137,8 @@ export function ChallengesView() {
           <EmptyState
             icon={<Award size={24} />}
             title="No badges yet"
-            hint="Pick a challenge above. You'll get a little celebration when you finish it."
-            action={{ label: "Pick a challenge", onClick: () => window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" }) }}
+            hint={firstHint.hint}
+            action={{ label: firstHint.label, href: firstHint.href }}
           />
         ) : (
           <div className="badge-shelf">

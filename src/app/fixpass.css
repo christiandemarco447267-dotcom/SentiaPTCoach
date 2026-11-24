@@ -1,0 +1,106 @@
+/* ---------- Fix pass (Nov 23): coach markdown, follow-ups, banners, search palette ---------- */
+.md p {
+  margin: 0 0 0.55em;
+}
+.md p:last-child {
+  margin-bottom: 0;
+}
+.md ul,
+.md ol {
+  margin: 0.25em 0 0.55em;
+  padding-left: 1.25em;
+}
+.md li {
+  margin: 0.15em 0;
+}
+.md code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  padding: 0.05em 0.35em;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.bubble-coach .md.coach-text {
+  white-space: normal;
+}
+.coach-followups {
+  margin-top: 10px;
+}
+.coach-followups .chip,
+.palette-item,
+.banner-actions .btn {
+  min-height: 44px;
+}
+.palette-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: min(55vh, 420px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.palette-item.active {
+  background: rgba(167, 139, 250, 0.14);
+  border-color: rgba(167, 139, 250, 0.35);
+}
+.palette-icon {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.06);
+  flex: none;
+}
+.palette-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-search {
+  width: 100%;
+  background: none;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  min-height: 44px;
+  margin: 6px 0 2px;
+}
+.nav-search .kbd {
+  margin-left: auto;
+}
+.starter-banner {
+  position: relative;
+  align-items: center;
+  padding-right: 52px;
+  border-color: rgba(167, 139, 250, 0.35);
+}
+.starter-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-width: 44px;
+  min-height: 44px;
+}
+@media (max-width: 480px) {
+  .starter-banner .banner-actions {
+    width: 100%;
+  }
+  .starter-banner .banner-actions .btn {
+    flex: 1;
+  }
+}

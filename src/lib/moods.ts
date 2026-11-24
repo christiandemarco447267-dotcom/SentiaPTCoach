@@ -23,6 +23,8 @@ export type MoodStat = {
   /** Closed trades (sells) attributed to this mood. */
   closed: number;
   wins: number;
+  /** Closed trades with |realized P/L| under half a cent: not a win or a loss. */
+  breakeven: number;
   winRate: number | null;
   realized: number;
 };
@@ -35,7 +37,7 @@ export type MoodStat = {
  */
 export function moodStats(transactions: Transaction[], basis: MoodBasis = "entry"): MoodStat[] {
   const byMood = new Map<Mood, MoodStat>(
-    MOODS.map((m) => [m, { mood: m, label: MOOD_INFO[m].label, emoji: MOOD_INFO[m].emoji, trades: 0, closed: 0, wins: 0, winRate: null, realized: 0 }]),
+    MOODS.map((m) => [m, { mood: m, label: MOOD_INFO[m].label, emoji: MOOD_INFO[m].emoji, trades: 0, closed: 0, wins: 0, breakeven: 0, winRate: null, realized: 0 }]),
   );
   for (const tx of transactions) {
     if ((tx.type === "buy" || tx.type === "sell") && tx.mood) byMood.get(tx.mood)!.trades += 1;
@@ -64,10 +66,14 @@ export function moodStats(transactions: Transaction[], basis: MoodBasis = "entry
     if (!mood) continue;
     const stat = byMood.get(mood)!;
     stat.closed += 1;
-    if (sell.realizedGain > 0) stat.wins += 1;
+    if (Math.abs(sell.realizedGain) < 0.005) stat.breakeven += 1;
+    else if (sell.realizedGain > 0) stat.wins += 1;
     stat.realized = round2(stat.realized + sell.realizedGain);
   }
-  for (const stat of byMood.values()) stat.winRate = stat.closed ? (stat.wins / stat.closed) * 100 : null;
+  for (const stat of byMood.values()) {
+    const decided = stat.closed - stat.breakeven;
+    stat.winRate = decided ? (stat.wins / decided) * 100 : null;
+  }
   return [...byMood.values()];
 }
 

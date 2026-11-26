@@ -6,6 +6,16 @@ import { ctx, jsonRes, makeEnv, mockFetch, PAGES } from "./helpers";
 const SAT = Date.UTC(2026, 9, 31, 15, 0, 0);
 
 describe("CORS allowlist", () => {
+  it("allows the GitHub Pages site and sentiacoach.com", () => {
+    const env = makeEnv();
+    for (const origin of [PAGES, "https://sentiacoach.com", "https://www.sentiacoach.com"]) {
+      expect(isAllowedOrigin(origin, env)).toBe(true);
+      expect(corsHeaders(origin, env)["Access-Control-Allow-Origin"]).toBe(origin);
+    }
+    expect(isAllowedOrigin("https://sentiacoach.com.evil.example", env)).toBe(false);
+    expect(isAllowedOrigin("https://api.sentiacoach.com", env)).toBe(false);
+  });
+
   it("allows the Capacitor app origins (iOS capacitor://, Android https://localhost, http://localhost)", () => {
     const env = makeEnv();
     for (const origin of ["capacitor://localhost", "https://localhost", "http://localhost"]) {

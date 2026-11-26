@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Bot, CalendarCheck, Lightbulb, TrendingDown, TrendingUp } from "lucide-react";
 import { askAiCoach, aiCoachConfigured } from "@/lib/ai-coach";
+import { useApiConfigured } from "@/lib/use-api-configured";
 import { buildCoachContext } from "@/lib/coach-context";
 import { DISCIPLINE_NAME, disciplineBandsText } from "@/lib/discipline";
 import { useDiscipline } from "./discipline-card";
@@ -24,6 +25,7 @@ const aiTried = new Set<string>();
  */
 export function ReportCardWatcher() {
   const { state, summary, quotes, actions } = useApp();
+  const apiOn = useApiConfigured();
   const ready = Boolean(state && summary);
   // eslint-disable-next-line react-hooks/purity -- the due week is relative to now
   const due = state ? dueReportWeek(state, Date.now()) : null;
@@ -37,7 +39,7 @@ export function ReportCardWatcher() {
     } catch {
       return;
     }
-    if (!aiCoachConfigured() || aiTried.has(due) || !summary) return;
+    if (!apiOn || aiTried.has(due) || !summary) return;
     aiTried.add(due);
     const context = buildCoachContext({ state, summary, quotes });
     askAiCoach(reportPrompt(report), context, () => undefined)
@@ -47,7 +49,7 @@ export function ReportCardWatcher() {
       })
       .catch(() => undefined); // keep the built-in coach's tip
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per due week
-  }, [ready, due]);
+  }, [ready, due, apiOn]);
 
   return null;
 }

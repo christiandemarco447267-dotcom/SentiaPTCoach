@@ -70,6 +70,7 @@ If you use Anthropic instead of OpenAI, also open `wrangler.toml` and change
 npx wrangler deploy
 ```
 It prints your API address, e.g. `https://sentia-api.<your-subdomain>.workers.dev`. Copy it.
+The same deploy attaches `https://api.sentiacoach.com` when the sentiacoach.com zone is on this Cloudflare account.
 
 ### 6. Check it works
 Open these in your browser (replace the address):
@@ -84,7 +85,7 @@ Then follow **PILOT_SETUP.md** (in the main folder) to connect the website to it
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `ALLOWED_ORIGINS` | `https://christiandemarco447267-dotcom.github.io` | Websites allowed to use the API (comma-separated). Localhost is always allowed for testing. |
+| `ALLOWED_ORIGINS` | GitHub Pages, `https://sentiacoach.com`, `https://www.sentiacoach.com` | Websites allowed to use the API (comma-separated). Localhost and the mobile app origins are always allowed. |
 | `COACH_PROVIDER` | `openai` | `openai` or `anthropic`. |
 | `COACH_MODEL` | *(empty)* | Leave empty for the cheap defaults: `gpt-6-luna` (OpenAI) or `claude-haiku-5-5` (Anthropic). |
 | `COACH_DAILY_LIMIT_PER_IP` | `30` | AI questions per visitor per day. |

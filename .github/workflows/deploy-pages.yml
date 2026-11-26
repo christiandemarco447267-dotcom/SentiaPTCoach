@@ -78,12 +78,13 @@ jobs:
           NEXT_PUBLIC_SITE_URL: ${{ steps.site.outputs.site_url }}
           # Tells the client it's a static build (skip the non-existent /api route).
           NEXT_PUBLIC_STATIC_EXPORT: "true"
-          # Optional: URL of the Sentia API (the Cloudflare Worker in /worker), e.g.
-          # https://sentia-api.<you>.workers.dev. Set it as a repository VARIABLE (Settings →
-          # Secrets and variables → Actions → Variables), not a secret: it's a public URL.
-          # Market-data and AI keys live only in the Worker as Worker secrets and are never
-          # put in this build. Leave unset and the site runs with demo prices, the built-in
-          # coach, link-based feedback and no analytics.
+          # Optional override for the Sentia API. The app already links to
+          # https://api.sentiacoach.com and uses it only after /health answers, so leave this
+          # unset for that address. Set a repository VARIABLE (Settings → Secrets and variables
+          # → Actions → Variables), not a secret, to point at a different public URL such as
+          # https://sentia-api.<you>.workers.dev. Market-data and AI keys live only in the Worker
+          # as Worker secrets and are never put in this build. While the API is unreachable the
+          # site keeps demo prices, the built-in coach, link-based feedback and no analytics.
           NEXT_PUBLIC_SENTIA_API_URL: ${{ vars.NEXT_PUBLIC_SENTIA_API_URL }}
           # Optional public contact email for the no-API feedback fallback (repository variable).
           NEXT_PUBLIC_FEEDBACK_EMAIL: ${{ vars.NEXT_PUBLIC_FEEDBACK_EMAIL }}

@@ -9,7 +9,7 @@ compatibility_date = "2025-09-01"
 [vars]
 # Comma-separated list of websites allowed to call this API (besides localhost for testing).
 # The Sentia mobile apps (capacitor://localhost, https://localhost, http://localhost) are always allowed in code.
-ALLOWED_ORIGINS = "https://christiandemarco447267-dotcom.github.io"
+ALLOWED_ORIGINS = "https://christiandemarco447267-dotcom.github.io,https://sentiacoach.com,https://www.sentiacoach.com"
 # AI coach provider: "openai" or "anthropic". Model is optional (cheap defaults are built in).
 COACH_PROVIDER = "openai"
 COACH_MODEL = ""
@@ -33,3 +33,9 @@ id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
 # Does nothing until the VAPID keys are set (see README.md → "Background price alerts").
 # [triggers]
 # crons = ["*/15 * * * *"]
+
+# Public address. Deploying attaches this hostname when the sentiacoach.com zone
+# is on the same Cloudflare account (wrangler creates the DNS record).
+[[routes]]
+pattern = "api.sentiacoach.com"
+custom_domain = true

@@ -60,9 +60,9 @@ export default function PrivacyPage() {
       <section className="stack gap-sm">
         <h2>Market data</h2>
         <p className="muted">
-          Without the optional Sentia API, prices are simulated in your browser, labelled <strong>Demo</strong>, and no
-          market-data request leaves your device. When the deployment configures the Sentia API (a small Cloudflare
-          Worker run by the site owner), your browser sends it the <strong>ticker symbols</strong> on screen; the API
+          The Sentia API lives at <strong>api.sentiacoach.com</strong>. Until that address answers, prices are
+          simulated in your browser, labelled <strong>Demo</strong>, and no market-data request leaves your device.
+          When it does answer, your browser sends it the <strong>ticker symbols</strong> on screen; the API
           fetches quotes from Finnhub (or Yahoo Finance as a fallback) using a key kept on the server. Your holdings,
           share counts and other data are never sent for prices. Like any web server, Cloudflare processes your IP
           address to deliver the request; the API uses it only in memory for rate limiting and doesn&apos;t store it.

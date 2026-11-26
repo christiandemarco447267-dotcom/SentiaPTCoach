@@ -1,6 +1,10 @@
 import type { Env } from "./env";
 
-export const DEFAULT_ORIGINS = ["https://christiandemarco447267-dotcom.github.io"];
+export const DEFAULT_ORIGINS = [
+  "https://christiandemarco447267-dotcom.github.io",
+  "https://sentiacoach.com",
+  "https://www.sentiacoach.com",
+];
 
 /**
  * Origins the Sentia mobile apps (Capacitor) load from. Always allowed, whatever ALLOWED_ORIGINS says:

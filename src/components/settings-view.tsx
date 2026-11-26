@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { BarChart3, Cloud, Compass, Download, PartyPopper, RotateCcw, ShieldCheck, Upload, UserRound } from "lucide-react";
 import { analyticsAvailable, setConsent } from "@/lib/analytics";
-import { APP_VERSION, apiConfigured } from "@/lib/api-config";
+import { APP_VERSION, apiConfigured, usingSentiaCoachApi } from "@/lib/api-config";
 import { useAnalyticsConsent } from "./pilot-prompts";
 import { celebrate, prefersReducedMotion } from "@/lib/celebrate";
 import { useAuth } from "@/lib/auth";
@@ -35,10 +35,10 @@ function takeReauthNotice(): boolean {
 
 const MAX_IMPORT_BYTES = 1_000_000;
 const IS_STATIC_EXPORT = process.env.NEXT_PUBLIC_STATIC_EXPORT === "true";
-const HAS_API = apiConfigured();
 
 export function SettingsView() {
   const { ready, state, actions, openTour, openProfileSetup, sync } = useApp();
+  const hasApi = apiConfigured();
   const { configured } = useAuth();
   const reauth = useReauth();
   const cloud = sync.mode === "cloud";
@@ -224,9 +224,11 @@ export function SettingsView() {
           <li>Every write is validated with Zod and stored under a versioned schema with a migration path.</li>
           {IS_STATIC_EXPORT ? (
             <li>
-              {HAS_API
-                ? "Real prices come from the Sentia API (which keeps the market-data key on the server). If it can't be reached, prices switch to clearly labeled demo prices and orders/alerts pause."
-                : "This build has no live price service, so prices are simulated in your browser and labeled Demo."}
+              {hasApi
+                ? usingSentiaCoachApi()
+                  ? "Real prices come from the Sentia API at api.sentiacoach.com (the market-data key stays on the server). If it can't be reached, prices stay on clearly labeled demo prices."
+                  : "Real prices come from the Sentia API (which keeps the market-data key on the server). If it can't be reached, prices switch to clearly labeled demo prices and orders/alerts pause."
+                : "Prices are simulated in your browser and labeled Demo until the Sentia API at api.sentiacoach.com answers."}
             </li>
           ) : (
             <>

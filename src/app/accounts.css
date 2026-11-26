@@ -174,6 +174,30 @@ html[data-theme="light"] .apple-btn {
     padding-right: 12px;
   }
 }
+/* Landing header: never let the buttons sit on top of the wordmark. */
+.landing-header {
+  flex-wrap: wrap;
+  row-gap: 14px;
+}
+.landing-header .brand {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.landing-header-actions .btn {
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .landing-header .brand {
+    flex: 1 0 100%;
+  }
+  .landing-header-actions {
+    width: 100%;
+  }
+  .landing-header-actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
 @media (max-width: 360px) {
   .landing-signup {
     display: none;

@@ -43,13 +43,13 @@ export function Landing() {
     <main className="landing">
       <div className="hero-grid-bg" style={{ backgroundImage: `url(${assetPath("/hero-grid.svg")})` }} />
       <div className="container" style={{ position: "relative" }}>
-        <header className="row between" style={{ padding: "24px 0" }}>
+        <header className="row between landing-header" style={{ padding: "24px 0" }}>
           <div className="brand">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={assetPath("/brand-mark.webp")} alt="" className="brand-mark" width={36} height={36} decoding="async" />
             Sentia
           </div>
-          <span className="row gap-sm">
+          <span className="row gap-sm landing-header-actions">
             {ACCOUNTS_ENABLED ? (
               <>
                 <Link href="/signin" className="btn btn-sm">

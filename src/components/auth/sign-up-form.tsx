@@ -11,7 +11,8 @@ import { firebaseAuth } from "@/lib/firebase";
 import { AuthCard, FormMessage, NotConfigured } from "./auth-card";
 
 export function SignUpForm() {
-  const { configured } = useAuth();
+  const { provider } = useAuth();
+  const configured = provider === "firebase";
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

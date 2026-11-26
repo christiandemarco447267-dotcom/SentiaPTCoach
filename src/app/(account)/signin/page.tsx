@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { SignInForm } from "@/components/auth/sign-in-form";
+import { SignInEntry } from "@/components/auth/account-entry";
 
 export const metadata: Metadata = {
   title: "Sign in",
-  description: "Sign in to sync your Sentia paper account.",
+  description: "Sign in to your Sentia account.",
   robots: { index: false, follow: false },
 };
 
 export default function Page() {
-  return <SignInForm />;
+  return <SignInEntry />;
 }

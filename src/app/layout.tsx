@@ -8,6 +8,7 @@ import "./globals.css";
 import "./polish.css";
 import "./fixpass.css";
 import "./publish.css";
+import "./accounts.css";
 
 const dancingScript = Dancing_Script({
   variable: "--font-brand",

@@ -2,7 +2,7 @@
   "name": "sentia",
   "version": "1.2.0",
   "private": true,
-  "description": "Sentia \u2014 a focused, professional paper-trading coach (buy/sell simulation, portfolio, theses, insights) with local-first data.",
+  "description": "Sentia — a focused, professional paper-trading coach (buy/sell simulation, portfolio, theses, insights) with local-first data.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -31,6 +31,7 @@
     "@capacitor/keyboard": "^8.0.6",
     "@capacitor/splash-screen": "^8.0.2",
     "@capacitor/status-bar": "^8.0.4",
+    "@simplewebauthn/browser": "^14.0.0",
     "clsx": "^2.1.1",
     "firebase": "^13.1.0",
     "lucide-react": "^1.25.0",

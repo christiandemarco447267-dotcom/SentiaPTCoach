@@ -15,6 +15,7 @@ import { useApp } from "@/lib/store";
 import { Loading, Panel, PageHeader } from "./ui";
 import { LevelSummary } from "./level-summary";
 import { AccountSecurity } from "./auth/account-security";
+import { SentiaAccountPanel } from "./auth/sentia-account-panel";
 import { AboutPanel, DeleteDataPanel } from "./delete-data";
 import { AppLegalFooter } from "./site-footer";
 import { REAUTH_NOTICE_KEY } from "./auth/email-link-complete";
@@ -39,7 +40,7 @@ const IS_STATIC_EXPORT = process.env.NEXT_PUBLIC_STATIC_EXPORT === "true";
 export function SettingsView() {
   const { ready, state, actions, openTour, openProfileSetup, sync } = useApp();
   const hasApi = apiConfigured();
-  const { configured } = useAuth();
+  const { configured, provider } = useAuth();
   const reauth = useReauth();
   const cloud = sync.mode === "cloud";
   const fileRef = useRef<HTMLInputElement>(null);
@@ -102,7 +103,7 @@ export function SettingsView() {
       setMessage({ tone: "ok", text: "Workspace reset to the starting demo." });
     };
     // Wiping the cloud copy is a sensitive action: require a recent sign-in (password, SMS, or email link).
-    if (cloud) void reauth.run(doReset).catch(() => setMessage({ tone: "error", text: "Couldn't confirm your identity." }));
+    if (cloud && provider === "firebase") void reauth.run(doReset).catch(() => setMessage({ tone: "error", text: "Couldn't confirm your identity." }));
     else void doReset();
   };
 
@@ -172,17 +173,18 @@ export function SettingsView() {
       <CelebrationSettings />
       <AnalyticsSettings />
 
-      {cloud ? <AccountSecurity /> : null}
+      {cloud ? provider === "sentia" ? <SentiaAccountPanel /> : <AccountSecurity /> : null}
 
       {configured && !cloud ? (
         <Panel className="row between wrap gap-sm">
           <div className="stack" style={{ gap: 2 }}>
             <span className="row gap-sm">
-              <Cloud size={18} /> <strong>You&apos;re in demo mode</strong>
+              <Cloud size={18} /> <strong>{provider === "sentia" ? "Save your progress to an account" : <>You&apos;re in demo mode</>}</strong>
             </span>
             <span className="small muted">
-              Everything is saved in this browser only. Create an account to keep your paper portfolio in sync across devices —
-              your current workspace comes with you.
+              {provider === "sentia"
+                ? "Everything is saved on this device only. Create a free account and your progress saves automatically to the cloud and follows you to any device — what you've done here comes with you."
+                : "Everything is saved in this browser only. Create an account to keep your paper portfolio in sync across devices — your current workspace comes with you."}
             </span>
           </div>
           <span className="row wrap gap-sm">
@@ -213,7 +215,12 @@ export function SettingsView() {
           <ShieldCheck size={18} /> <strong>How your data is handled</strong>
         </span>
         <ul className="muted small" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.8 }}>
-          {cloud ? (
+          {cloud && provider === "sentia" ? (
+            <li>
+              Your progress saves automatically to your Sentia account (stored by the Sentia API on Cloudflare). Only your signed-in
+              sessions can read or write it; passwords are stored only as salted hashes.
+            </li>
+          ) : cloud ? (
             <li>
               Your paper account is saved to your Sentia account (Google Cloud Firestore). Only you can read or write it — access
               is enforced by security rules tied to your verified sign-in.

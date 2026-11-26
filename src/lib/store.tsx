@@ -49,6 +49,24 @@ import { AUTOSAVE_DEBOUNCE_MS, createDebouncedSaver, isRemoteNewer, type Debounc
 const loadCloudStore = () => import("./cloud-store");
 import { normalizeSymbol } from "./validation";
 import { browserHistoryStorage, clearCoachHistory } from "./coach-history";
+import {
+  ACCOUNT_POLL_MS,
+  ACCOUNT_RETRY_MS,
+  ACCOUNT_SAVE_DEBOUNCE_MS,
+  adoptRevision,
+  applyExtras,
+  clearPendingIfSaved,
+  decideInitialState,
+  fetchAccountState,
+  pendingKey,
+  pollAccountState,
+  RemoteNewerError,
+  resetRevision,
+  saveAccountState,
+  saveBackup,
+  writePending,
+} from "./account-sync";
+import { AccountError, currentToken, getSessionSnapshot, isNetworkError } from "./sentia-accounts";
 
 // ---- Market config ---------------------------------------------------------
 
@@ -61,11 +79,14 @@ const IS_STATIC_EXPORT = process.env.NEXT_PUBLIC_STATIC_EXPORT === "true";
 //
 // Two storage modes share one in-memory store:
 //  - guest: local-first demo, persisted to localStorage on this device only.
-//  - cloud: a signed-in account, persisted to Firestore at users/{uid}/state/current
-//           with a debounced autosave on every change and live updates from other devices.
+//  - cloud: a signed-in account with a debounced autosave on every change, on one of two backends:
+//      firebase → Firestore at users/{uid}/state/current, with live updates from other devices;
+//      sentia   → the Sentia Worker (account-sync.ts), with revision checks, a device copy of
+//                 unsaved changes, offline retry, and a periodic check for other devices' saves.
 
-export type StorageMode = { kind: "guest" } | { kind: "cloud"; uid: string };
-export type SyncStatus = "local" | "loading" | "saving" | "saved" | "error";
+export type CloudBackend = "firebase" | "sentia";
+export type StorageMode = { kind: "guest" } | { kind: "cloud"; uid: string; backend?: CloudBackend };
+export type SyncStatus = "local" | "loading" | "saving" | "saved" | "offline" | "error";
 export type SyncState = { mode: StorageMode["kind"] | null; status: SyncStatus; error?: string };
 
 let mode: StorageMode | null = null;
@@ -77,6 +98,11 @@ let unwatch: (() => void) | null = null;
 // Set when the cloud copy exists but can't be read, so autosave never overwrites it.
 let cloudWritesBlocked = false;
 let storageListenerInstalled = false;
+// Sentia-account sync state (see activateSentia).
+let sentiaTimers: ReturnType<typeof setTimeout>[] = [];
+let sentiaCleanup: (() => void)[] = [];
+let carriedGuest = false;
+let exiting = false;
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -227,7 +253,10 @@ function persistLocal(state: AppState) {
 
 function persist(state: AppState) {
   if (mode?.kind === "cloud") {
-    if (!cloudWritesBlocked) saver?.schedule(state);
+    if (cloudWritesBlocked) return;
+    // Keep this account's latest change on the device until the cloud has it (offline, tab closed).
+    if (mode.backend === "sentia") writePending(accountStorage(), mode.uid, state);
+    saver?.schedule(state);
     return;
   }
   persistLocal(state);
@@ -296,11 +325,202 @@ function teardownCloud() {
   saver?.cancel();
   saver = null;
   cloudWritesBlocked = false;
+  for (const t of sentiaTimers) clearTimeout(t);
+  sentiaTimers = [];
+  for (const fn of sentiaCleanup) fn();
+  sentiaCleanup = [];
+  carriedGuest = false;
 }
 
 function sameMode(a: StorageMode | null, b: StorageMode): boolean {
   if (!a || a.kind !== b.kind) return false;
-  return a.kind === "guest" || (b.kind === "cloud" && a.uid === b.uid);
+  return a.kind === "guest" || (b.kind === "cloud" && a.uid === b.uid && (a.backend ?? "firebase") === (b.backend ?? "firebase"));
+}
+
+/** Where a Sentia account's device copy lives: localStorage with "Remember me", else this tab only. */
+function accountStorage(): Storage | null {
+  try {
+    return getSessionSnapshot().session?.remember ? window.localStorage : window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+function browserLocal(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function online(): boolean {
+  return typeof navigator === "undefined" || navigator.onLine !== false;
+}
+
+/** Run `fn` once when the device is back online (cleaned up on mode change). */
+function whenOnline(gen: number, fn: () => void) {
+  const handler = () => {
+    window.removeEventListener("online", handler);
+    if (gen === generation) fn();
+  };
+  window.addEventListener("online", handler);
+  sentiaCleanup.push(() => window.removeEventListener("online", handler));
+}
+
+/**
+ * A Sentia (Worker) account: load the saved progress (merging this device's guest workspace or
+ * unsaved changes, newest wins, the other copy backed up), then autosave every change.
+ */
+function activateSentia(uid: string, gen: number) {
+  const store = accountStorage();
+  let lastSaved: AppState | null = null;
+  saver = createDebouncedSaver<AppState>(
+    async (state) => {
+      await saveAccountState(state, uid, currentToken(), browserLocal(), { keepalive: exiting });
+      lastSaved = state;
+    },
+    ACCOUNT_SAVE_DEBOUNCE_MS,
+    {
+      onStart: () => gen === generation && setSync({ status: online() ? "saving" : "offline" }),
+      onSuccess: () => {
+        if (gen !== generation) return;
+        if (lastSaved) clearPendingIfSaved(store, uid, lastSaved);
+        if (carriedGuest) {
+          // The demo workspace now lives in the account: take it off the device so signing out
+          // later doesn't leave the account's data behind as "guest" data.
+          carriedGuest = false;
+          try {
+            localStorage.removeItem(STORAGE_KEY);
+            for (const key of LEGACY_STORAGE_KEYS) localStorage.removeItem(key);
+          } catch {
+            // ignore
+          }
+        }
+        if (!saver?.pending()) setSync({ status: "saved" });
+      },
+      onError: (error) => {
+        if (gen !== generation) return;
+        if (error instanceof RemoteNewerError) {
+          current = error.remote;
+          try {
+            store?.removeItem(pendingKey(uid));
+          } catch {
+            // ignore
+          }
+          setSync({ status: "saved" });
+          pushToast({ title: "Updated from another device", body: "Newer progress was saved on another device, so it's shown here. This device's copy is kept as a backup in Settings.", tone: "info" });
+          return;
+        }
+        if (isNetworkError(error) || !online()) {
+          setSync({ status: "offline" });
+          whenOnline(gen, () => {
+            if (current && !cloudWritesBlocked) {
+              saver?.schedule(current);
+              void saver?.flush();
+            }
+          });
+          return;
+        }
+        if (error instanceof AccountError && error.status === 401) {
+          setSync({ status: "error", error: "You've been signed out, so changes aren't being saved to your account. Sign in again; your latest changes are kept on this device." });
+          return;
+        }
+        setSync({ status: "error", error: error instanceof Error ? error.message : "Couldn't save to your account. We'll try again shortly." });
+        sentiaTimers.push(
+          setTimeout(() => {
+            if (gen === generation && current && !cloudWritesBlocked) saver?.schedule(current);
+          }, ACCOUNT_RETRY_MS),
+        );
+      },
+    },
+  );
+
+  const startPolling = () => {
+    const check = () => {
+      if (gen !== generation || saver?.pending() || cloudWritesBlocked || !online() || document.visibilityState !== "visible") return;
+      void pollAccountState(uid, currentToken())
+        .then((remote) => {
+          if (gen !== generation || !remote?.state || saver?.pending()) return;
+          if (isRemoteNewer(remote.state, current)) {
+            adoptRevision(uid, remote.revision);
+            applyExtras(remote.payload, uid, browserLocal());
+            current = remote.state;
+            emit();
+          }
+        })
+        .catch(() => undefined);
+    };
+    const interval = setInterval(check, ACCOUNT_POLL_MS);
+    const onVisible = () => document.visibilityState === "visible" && check();
+    document.addEventListener("visibilitychange", onVisible);
+    sentiaCleanup.push(() => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    });
+  };
+
+  resetRevision(uid);
+  fetchAccountState(uid, currentToken())
+    .then((remote) => {
+      if (gen !== generation) return;
+      if (remote.unreadable) {
+        cloudWritesBlocked = true;
+        current = createInitialState();
+        setSync({ status: "error", error: "Your saved progress was written by a newer version of Sentia, so changes here won't be saved. Reload the page to update." });
+        return;
+      }
+      applyExtras(remote.payload, uid, browserLocal());
+      const guestRaw = readStoredRaw();
+      const decision = decideInitialState({
+        cloud: remote.state,
+        pending: readPendingState(store, uid),
+        guest: guestRaw ? parseStoredState(guestRaw) : null,
+        fresh: createInitialState,
+      });
+      current = decision.state;
+      carriedGuest = decision.carriedGuest;
+      if (decision.backup) {
+        void saveBackup(decision.backup, uid, currentToken(), decision.source === "guest" ? "replaced-by-device" : "older-copy", browserLocal()).catch(() => undefined);
+      }
+      if (decision.source === "guest" && remote.state) {
+        pushToast({ title: "Your latest progress is saved to your account", body: "This device had newer practice progress, so it's now your account's. The previous account copy is kept as a backup in Settings.", tone: "info" });
+      }
+      if (decision.push && current) {
+        writePending(store, uid, current);
+        setSync({ status: "saving" });
+        saver?.schedule(current);
+        void saver?.flush();
+      } else {
+        setSync({ status: "saved" });
+      }
+      startPolling();
+    })
+    .catch((error: unknown) => {
+      if (gen !== generation) return;
+      if (isNetworkError(error) || !online()) {
+        // Offline start: carry on from this account's device copy if there is one; sync when back.
+        const pending = readPendingState(store, uid);
+        if (pending) {
+          current = pending;
+          setSync({ status: "offline" });
+        } else {
+          setSync({ status: "error", error: "You're offline, so your account can't load yet. It will load automatically when you're back online." });
+        }
+        whenOnline(gen, () => activate({ kind: "cloud", uid, backend: "sentia" }, true));
+        return;
+      }
+      setSync({ status: "error", error: error instanceof Error ? error.message : "Couldn't load your account." });
+    });
+}
+
+function readPendingState(store: Storage | null, uid: string): AppState | null {
+  try {
+    const raw = store?.getItem(pendingKey(uid));
+    return raw ? parseStoredState(raw) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Switch the store to guest (localStorage) or a signed-in account (Firestore). */
@@ -322,6 +542,10 @@ function activate(next: StorageMode, force = false) {
   const { uid } = next;
   current = null;
   setSync({ status: "loading" });
+  if (next.backend === "sentia") {
+    activateSentia(uid, gen);
+    return;
+  }
   saver = createDebouncedSaver<AppState>((state) => loadCloudStore().then((m) => m.saveCloudState(uid, state)), AUTOSAVE_DEBOUNCE_MS, {
     onStart: () => gen === generation && setSync({ status: "saving" }),
     onSuccess: () => gen === generation && !saver?.pending() && setSync({ status: "saved" }),
@@ -374,9 +598,35 @@ export function retryCloudLoad() {
   if (mode) activate(mode, true);
 }
 
-/** Write any pending cloud change now (call before sign-out). */
-export async function flushCloudSave(): Promise<void> {
-  await saver?.flush();
+/** Write any pending cloud change now (call before sign-out). `onExit` uses a keepalive request so it survives the page closing. */
+export async function flushCloudSave(opts: { onExit?: boolean } = {}): Promise<void> {
+  exiting = Boolean(opts.onExit);
+  try {
+    await saver?.flush();
+  } finally {
+    exiting = false;
+  }
+}
+
+/** True while a change hasn't reached the signed-in account yet (offline, saving, or failed). */
+export function hasUnsavedAccountChanges(): boolean {
+  if (mode?.kind !== "cloud") return false;
+  return Boolean(saver?.pending()) || sync.status === "offline" || sync.status === "error";
+}
+
+/** Ask for a save of the current state (e.g. after the coach conversation, which lives outside AppState, changed). */
+export function requestAccountSave(): void {
+  if (mode?.kind === "cloud" && mode.backend === "sentia" && current && !cloudWritesBlocked) saver?.schedule(current);
+}
+
+/**
+ * Swap in the account's backup copy (Sentia accounts). The copy shown now becomes the backup,
+ * so the swap can be undone the same way.
+ */
+export async function restoreAccountBackup(backup: AppState): Promise<void> {
+  if (mode?.kind !== "cloud" || mode.backend !== "sentia" || !current) throw new Error("Sign in to restore a backup.");
+  await saveBackup(current, mode.uid, currentToken(), "swapped-out", browserLocal());
+  setCurrent({ ...backup, updatedAt: new Date().toISOString() });
 }
 
 /** Drop the in-memory account (after sign-out) so nothing leaks to the next session. */
@@ -559,13 +809,14 @@ export function AppProvider({ mode: storageMode, children }: { mode: StorageMode
   const [manualProfileOpen, setManualProfileOpen] = useState(false);
 
   const modeKey = storageMode.kind === "cloud" ? `cloud:${storageMode.uid}` : "guest";
+  const backend: CloudBackend = storageMode.kind === "cloud" ? (storageMode.backend ?? "firebase") : "firebase";
   useEffect(() => {
-    activate(modeKey === "guest" ? { kind: "guest" } : { kind: "cloud", uid: modeKey.slice("cloud:".length) });
-  }, [modeKey]);
+    activate(modeKey === "guest" ? { kind: "guest" } : { kind: "cloud", uid: modeKey.slice("cloud:".length), backend });
+  }, [modeKey, backend]);
 
   // Don't lose the last debounced change when the tab is hidden or closed.
   useEffect(() => {
-    const flush = () => void flushCloudSave();
+    const flush = () => void flushCloudSave({ onExit: true });
     const onVisibility = () => {
       if (document.visibilityState === "hidden") flush();
     };

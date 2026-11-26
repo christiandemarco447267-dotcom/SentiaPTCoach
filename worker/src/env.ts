@@ -26,6 +26,12 @@ export interface Env {
   SYMBOL_ALLOWLIST?: string;
   /** Contact for push services, e.g. "mailto:you@example.com" (required for background alerts). */
   VAPID_SUBJECT?: string;
+  /** "Continue with Google": the OAuth Web client ID (comma-separate several). Empty = Google sign-in off. */
+  GOOGLE_CLIENT_ID?: string;
+  /** "Continue with Apple" on the web: the Services ID (e.g. com.sentiacoach.web). Empty = Apple sign-in off. */
+  APPLE_SERVICES_ID?: string;
+  /** Optional: the iOS app's bundle id, accepted as an Apple token audience for a future native sign-in. */
+  APPLE_BUNDLE_ID?: string;
 }
 
 export function intVar(value: string | undefined, fallback: number, min = 0, max = Number.MAX_SAFE_INTEGER): number {

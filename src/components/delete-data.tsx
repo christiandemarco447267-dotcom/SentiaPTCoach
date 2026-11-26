@@ -12,6 +12,7 @@ import { friendlyAuthError } from "@/lib/auth-helpers";
 import { isNativeBuild } from "@/lib/platform";
 import { SIM_DISCLAIMER } from "@/lib/site";
 import { deactivateStore, useApp } from "@/lib/store";
+import { deleteSentiaAccount } from "@/lib/sentia-accounts";
 import { Panel } from "./ui";
 import { useReauth } from "./auth/reauth";
 
@@ -48,13 +49,16 @@ export function AboutPanel() {
  */
 export function DeleteDataPanel() {
   const { state } = useApp();
-  const { user } = useAuth();
+  const { user, provider, account } = useAuth();
   const reauth = useReauth();
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const signedIn = Boolean(user);
+  const sentia = provider === "sentia" && Boolean(account);
+  const needsPassword = sentia && Boolean(account?.hasPassword);
+  const signedIn = Boolean(user) || sentia;
 
   const finish = async () => {
     deactivateStore();
@@ -68,14 +72,19 @@ export function DeleteDataPanel() {
     setError(null);
     setBusy(true);
     const leagues = state?.leagues ?? [];
-    const run = signedIn
+    const run = sentia
+      ? // Deletes the account, its auto-saved progress and backup on the server, then this device.
+        deleteSentiaAccount(password).then(finish)
+      : signedIn
       ? reauth.run(async () => {
           await deleteCloudAccount(leagues);
           await finish();
         })
       : finish();
     void Promise.resolve(run)
-      .catch((e: unknown) => setError(friendlyAuthError(e, "Couldn't delete your data. Nothing was removed from this device.")))
+      .catch((e: unknown) =>
+        setError(e instanceof Error && e.name === "AccountError" ? e.message : friendlyAuthError(e, "Couldn't delete your data. Nothing was removed from this device.")),
+      )
       .finally(() => setBusy(false));
   };
 
@@ -86,7 +95,9 @@ export function DeleteDataPanel() {
       </span>
       <span className="small muted">
         {signedIn
-          ? "Permanently deletes your Sentia account, your paper portfolio saved in the cloud, your league entries, and everything stored on this device. This can't be undone."
+          ? sentia
+            ? "Permanently deletes your Sentia account, the progress saved to it (including any backup copy), and everything stored on this device. This can't be undone."
+            : "Permanently deletes your Sentia account, your paper portfolio saved in the cloud, your league entries, and everything stored on this device. This can't be undone."
           : "Permanently deletes your paper portfolio, trades, theses, profile, preferences and offline copies stored on this device. Nothing about you is kept on a server. This can't be undone."}{" "}
         <Link href="/delete-account">How deletion works</Link>
       </span>
@@ -105,8 +116,23 @@ export function DeleteDataPanel() {
               enterKeyHint="done"
             />
           </div>
+          {needsPassword ? (
+            <div className="field">
+              <label htmlFor="delete-password">Your password</label>
+              <input
+                id="delete-password"
+                className="input"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          ) : sentia ? (
+            <span className="small muted">For your security, this needs a sign-in within the last 15 minutes. If it fails, sign out, sign back in, and try again.</span>
+          ) : null}
           <span className="row wrap gap-sm">
-            <button type="submit" className="btn btn-danger" disabled={!deleteConfirmationMatches(typed) || busy}>
+            <button type="submit" className="btn btn-danger" disabled={!deleteConfirmationMatches(typed) || busy || (needsPassword && !password)}>
               <Trash2 size={16} /> {busy ? "Deleting…" : signedIn ? "Delete account and data" : "Delete all data"}
             </button>
             <button

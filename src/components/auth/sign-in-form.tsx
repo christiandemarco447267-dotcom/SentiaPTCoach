@@ -17,7 +17,8 @@ function nextFromLocation(): string {
 }
 
 export function SignInForm() {
-  const { configured } = useAuth();
+  const { provider } = useAuth();
+  const configured = provider === "firebase";
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

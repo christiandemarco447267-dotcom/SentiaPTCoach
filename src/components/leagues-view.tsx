@@ -72,7 +72,9 @@ function LockedState({ configured, joinCode }: { configured: boolean; joinCode: 
 }
 
 export function LeaguesView() {
-  const { configured, user } = useAuth();
+  const { provider, user } = useAuth();
+  // Leagues run on Firestore, so they need Firebase accounts (Sentia accounts don't include them yet).
+  const configured = provider === "firebase";
   const { ready, state, sync } = useApp();
   const params = useSearchParams();
   const joinCode = normalizeLeagueCode(params.get("join") ?? "");

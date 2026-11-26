@@ -100,6 +100,13 @@ jobs:
           # Optional: background price alerts via Web Push (public VAPID key; the private key lives
           # only in the Worker). Leave unset to keep alerts in-app / while-open only.
           NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ vars.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
+          # Sentia accounts (served by the Worker; on automatically when NEXT_PUBLIC_SENTIA_API_URL is
+          # set and Firebase isn't). Set NEXT_PUBLIC_SENTIA_ACCOUNTS=off to hide them.
+          NEXT_PUBLIC_SENTIA_ACCOUNTS: ${{ vars.NEXT_PUBLIC_SENTIA_ACCOUNTS }}
+          # Optional "Continue with Google / Apple" buttons (public client ids; see UPLOAD_STEPS.md).
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+          NEXT_PUBLIC_APPLE_SERVICES_ID: ${{ vars.NEXT_PUBLIC_APPLE_SERVICES_ID }}
+          NEXT_PUBLIC_APPLE_REDIRECT_URI: ${{ vars.NEXT_PUBLIC_APPLE_REDIRECT_URI }}
         run: npm run build
 
       - name: Add .nojekyll and CNAME

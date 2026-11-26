@@ -17,7 +17,7 @@ import {
 import { buildCoachContext } from "@/lib/coach-context";
 import { followUpChips } from "@/lib/coach-followups";
 import { SafeMarkdown } from "./safe-markdown";
-import { useApp } from "@/lib/store";
+import { requestAccountSave, useApp } from "@/lib/store";
 import { Loading, Panel, PageHeader } from "./ui";
 
 type Mode = "ai" | "builtin";
@@ -68,8 +68,13 @@ function CoachChat({ scope }: { scope: string }) {
   }, [messages]);
 
   // Persist after every change. Answers still streaming are skipped and saved once they finish.
+  const firstSave = useRef(true);
   useEffect(() => {
-    saveCoachHistory(browserHistoryStorage(), scope, messages);
+    const saved = saveCoachHistory(browserHistoryStorage(), scope, messages);
+    // Signed-in Sentia accounts also save the conversation with the account's progress
+    // (not on the first run, which only re-saves what was just restored).
+    if (saved && !firstSave.current) requestAccountSave();
+    firstSave.current = false;
   }, [messages, scope]);
 
   if (!state || !summary) return <Loading />;
@@ -78,6 +83,7 @@ function CoachChat({ scope }: { scope: string }) {
     if (busy) return;
     if (typeof window !== "undefined" && !window.confirm("Clear your conversation with Sentia on this device?")) return;
     clearCoachHistory(browserHistoryStorage(), scope);
+    requestAccountSave();
     seq.current = 1;
     setRestoredCount(0);
     setMessages([WELCOME]);

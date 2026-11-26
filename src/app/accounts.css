@@ -1,0 +1,187 @@
+/* ---------- Accounts: sign in / create account / Settings → Your account ---------- */
+
+.social-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Google draws its own (brand-approved) button inside this box. */
+.google-btn-holder {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  color-scheme: light;
+}
+.google-btn-holder iframe {
+  max-width: 100%;
+}
+
+/* Sign in with Apple — white style for dark backgrounds (Apple HIG): Apple logo + "Continue with Apple". */
+.apple-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 6px;
+  border: 1px solid #ffffff;
+  background: #ffffff;
+  color: #000000;
+  font: 500 15px/1 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.apple-btn:hover {
+  opacity: 0.9;
+}
+.apple-btn:focus-visible {
+  outline: 3px solid var(--primary-strong);
+  outline-offset: 2px;
+}
+.apple-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+html[data-theme="light"] .apple-btn {
+  /* Black style on light backgrounds. */
+  background: #000000;
+  border-color: #000000;
+  color: #ffffff;
+}
+
+.biometric-btn {
+  min-height: 44px;
+}
+
+.or-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-dim);
+  font-size: 13px;
+  text-transform: lowercase;
+}
+.or-divider::before,
+.or-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-strong);
+}
+
+.password-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.password-wrap .input {
+  padding-right: 48px;
+}
+.password-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.password-toggle:hover {
+  color: var(--text);
+}
+.password-toggle:focus-visible {
+  outline: 2px solid var(--primary-strong);
+  outline-offset: -2px;
+}
+
+.remember-row > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.remember-row input {
+  width: 18px;
+  height: 18px;
+}
+.remember-hint {
+  font-weight: 400;
+}
+
+.strength {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: -6px;
+}
+.strength-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.strength-bar span {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--border-strong);
+  transition: background 0.2s ease;
+}
+.strength-bar[data-score="1"] span:nth-child(-n + 1) {
+  background: var(--loss);
+}
+.strength-bar[data-score="2"] span:nth-child(-n + 2) {
+  background: #fbbf24;
+}
+.strength-bar[data-score="3"] span:nth-child(-n + 3) {
+  background: var(--accent);
+}
+.strength-bar[data-score="4"] span {
+  background: var(--gain);
+}
+
+.passkey-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.account-actions {
+  width: 100%;
+}
+.drawer .account-actions {
+  margin-top: 10px;
+}
+
+/* Small phones (280–390px): give the auth card room for full-width buttons. */
+@media (max-width: 400px) {
+  .status-screen .panel-pad-lg {
+    padding: 20px 16px;
+  }
+  .status-screen .container {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+@media (max-width: 360px) {
+  .landing-signup {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .strength-bar span {
+    transition: none;
+  }
+}

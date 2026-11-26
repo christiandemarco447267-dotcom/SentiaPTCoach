@@ -18,6 +18,11 @@ COACH_DAILY_LIMIT_PER_IP = "30"
 COACH_DAILY_LIMIT_TOTAL = "500"
 # Optional: restrict /quote to these tickers (comma-separated). Empty = any well-formed US ticker.
 SYMBOL_ALLOWLIST = ""
+# Accounts ("Continue with Google / Apple"). Leave empty to hide that option; email + password
+# and Face ID / Touch ID sign-in work without them. Setup: UPLOAD_STEPS.md / README.md → "Accounts".
+GOOGLE_CLIENT_ID = ""
+APPLE_SERVICES_ID = ""
+APPLE_BUNDLE_ID = ""
 # Optional background price alerts (Web Push): a contact for push services, e.g. "mailto:you@example.com".
 # Also needs the VAPID_PRIVATE_KEY / VAPID_PUBLIC_KEY secrets and the [triggers] block below. See README.md.
 # VAPID_SUBJECT = "mailto:you@example.com"

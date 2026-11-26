@@ -11,8 +11,11 @@ import {
   ClipboardList,
   Cloud,
   CloudAlert,
+  CloudOff,
   History,
   Home,
+  LogIn,
+  LogOut,
   Landmark,
   MessageCircle,
   Trophy,
@@ -31,7 +34,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { AppProvider, retryCloudLoad, useApp } from "@/lib/store";
+import { AppProvider, hasUnsavedAccountChanges, retryCloudLoad, useApp } from "@/lib/store";
 import { AuthGate } from "./auth/auth-gate";
 import { assetPath } from "@/lib/asset";
 import { initialsOf, avatarInk } from "@/lib/profile";
@@ -146,11 +149,18 @@ function ProfileChip({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 /** Where the paper account is saved: the signed-in account (cloud) or this device (guest/demo). */
-function SyncBadge({ className }: { className?: string }) {
+function SyncBadge({ className, compact = false }: { className?: string; compact?: boolean }) {
   const { sync } = useApp();
-  const { configured } = useAuth();
+  const { configured, provider } = useAuth();
   if (!configured || !sync.mode) return null;
   if (sync.mode === "guest") {
+    if (provider === "sentia") {
+      return (
+        <Link href="/signin?next=/app" className={clsx("pill", className)} title="Saved on this device only. Sign in or create an account to save your progress to the cloud automatically.">
+          <LogIn size={13} /> {compact ? "Sign in" : "Sign in to save progress"}
+        </Link>
+      );
+    }
     return (
       <Link href="/signup" className={clsx("pill", className)} title="Demo mode: saved in this browser only. Create an account to sync.">
         <MonitorSmartphone size={13} /> Demo · this device
@@ -158,11 +168,67 @@ function SyncBadge({ className }: { className?: string }) {
     );
   }
   const error = sync.status === "error";
-  const text = error ? "Sync problem" : sync.status === "saving" || sync.status === "loading" ? "Saving…" : "Synced";
+  const offline = sync.status === "offline";
+  const text = error
+    ? "Sync problem"
+    : offline
+      ? compact
+        ? "Offline"
+        : "Offline — will save when back online"
+      : sync.status === "saving" || sync.status === "loading"
+        ? "Saving…"
+        : provider === "sentia"
+          ? "Saved"
+          : "Synced";
+  const title = sync.error ?? (offline ? "You're offline. Your changes are kept on this device and will save when you're back online." : "Saved to your account");
   return (
-    <Link href="/app/settings" className={clsx("pill", error ? "pill-demo" : "pill-primary", className)} title={sync.error ?? "Saved to your account"} role="status">
-      {error ? <CloudAlert size={13} /> : <Cloud size={13} />} {text}
+    <Link href="/app/settings" className={clsx("pill", error || offline ? "pill-demo" : "pill-primary", className)} title={title} role="status" aria-live="polite">
+      {error ? <CloudAlert size={13} /> : offline ? <CloudOff size={13} /> : <Cloud size={13} />}{" "}
+      {/* On small phones the steady "Saved" state is just the cloud icon (still announced). */}
+      {compact && !error && !offline && text === "Saved" ? <span className="sr-only">{text}</span> : text}
     </Link>
+  );
+}
+
+/** Sign in / create account, or who's signed in + Sign out (sidebar and mobile menu). */
+function AccountActions({ onNavigate }: { onNavigate?: () => void }) {
+  const { provider, signedIn, account, user, signOut } = useAuth();
+  const [busy, setBusy] = useState(false);
+  if (provider === "none") return null;
+  if (!signedIn) {
+    return (
+      <div className="account-actions row wrap gap-sm">
+        <Link href="/signin?next=/app" className="btn btn-sm" onClick={onNavigate}>
+          <LogIn size={15} /> Sign in
+        </Link>
+        <Link href="/signup" className="btn btn-sm btn-primary" onClick={onNavigate}>
+          Create account
+        </Link>
+      </div>
+    );
+  }
+  const email = account?.email ?? user?.email ?? "";
+  const out = async () => {
+    if (hasUnsavedAccountChanges() && !confirm("Some recent changes haven't reached your account yet (you may be offline). Sign out anyway? Those changes will be lost.")) return;
+    setBusy(true);
+    try {
+      await signOut();
+      onNavigate?.();
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="account-actions stack" style={{ gap: 6 }}>
+      {email && !email.endsWith(".invalid") ? (
+        <span className="small muted truncate" title={email}>
+          Signed in as {email}
+        </span>
+      ) : null}
+      <button type="button" className="btn btn-sm" onClick={() => void out()} disabled={busy} style={{ width: "fit-content" }}>
+        <LogOut size={15} /> {busy ? "Signing out…" : "Sign out"}
+      </button>
+    </div>
   );
 }
 
@@ -178,6 +244,7 @@ function Sidebar() {
         <SyncBadge />
         <DemoPricesBadge />
         <FeedbackButton />
+        <AccountActions />
       </div>
       <ProfileChip />
     </aside>
@@ -197,7 +264,7 @@ function MobileTopBar({
     <header className="topbar">
       <BrandMark />
       <span className="grow" />
-      <SyncBadge className="pill-compact" />
+      <SyncBadge className="pill-compact" compact />
       <DemoPricesBadge className="pill-compact" />
       <button type="button" className="btn btn-icon" onClick={openSearchPalette} aria-label="Search tickers and pages">
         <Search size={20} />
@@ -286,6 +353,7 @@ function MobileDrawer({
         </div>
         <NavLinks onNavigate={onClose} />
         <FeedbackButton className="drawer-feedback" onOpen={onClose} />
+        <AccountActions onNavigate={onClose} />
         <ProfileChip onNavigate={onClose} />
       </aside>
     </div>

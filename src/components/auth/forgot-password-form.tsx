@@ -10,7 +10,8 @@ import { firebaseAuth } from "@/lib/firebase";
 import { AuthCard, FormMessage, NotConfigured } from "./auth-card";
 
 export function ForgotPasswordForm() {
-  const { configured } = useAuth();
+  const { provider } = useAuth();
+  const configured = provider === "firebase";
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);

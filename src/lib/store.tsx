@@ -11,7 +11,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { BENCHMARK_SYMBOL, DEMO_UNIVERSE, demoSnapshot } from "./market";
-import { apiConfigured } from "./api-config";
+import { apiConfigured, probeSentiaCoachApi, usingSentiaCoachApi } from "./api-config";
 import { track } from "./analytics";
 import { feedChangeNotice, type Feed } from "./feed-notice";
 import { fetchLiveQuotes, type WorkerMarketState } from "./live-quotes";
@@ -614,7 +614,7 @@ export function AppProvider({ mode: storageMode, children }: { mode: StorageMode
             missing: live.missing,
           }),
         )
-        .catch(() => simulate("unreachable"));
+        .catch(() => simulate(usingSentiaCoachApi() ? "not-configured" : "unreachable"));
       return;
     }
 
@@ -658,6 +658,19 @@ export function AppProvider({ mode: storageMode, children }: { mode: StorageMode
     refreshMarket();
     const id = setInterval(refreshMarket, MARKET_REFRESH_MS);
     return () => clearInterval(id);
+  }, [hasState, refreshMarket]);
+
+  // The built-in host (api.sentiacoach.com) stays on demo prices until /health
+  // answers. A miss does not pause orders. An explicit API URL is already configured.
+  useEffect(() => {
+    if (!hasState || apiConfigured()) return;
+    let cancel = false;
+    void probeSentiaCoachApi().then((ok) => {
+      if (!cancel && ok) refreshMarket();
+    });
+    return () => {
+      cancel = true;
+    };
   }, [hasState, refreshMarket]);
 
   // Each price update (and each state change, e.g. a newly placed order) runs the

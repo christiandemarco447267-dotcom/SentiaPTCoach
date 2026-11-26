@@ -1,3 +1,5 @@
+import { SENTIA_COACH_API_URL } from "./api-config";
+
 /**
  * Security headers applied to every response by `proxy.ts`.
  *
@@ -10,13 +12,18 @@ export function getSecurityHeaders(
   isDev = process.env.NODE_ENV !== "production",
   apiUrl = process.env.NEXT_PUBLIC_SENTIA_API_URL ?? "",
 ): Record<string, string> {
-  // The optional Sentia API (Cloudflare Worker) for real quotes, feedback, usage counts and the AI coach.
-  let apiOrigin = "";
-  try {
-    apiOrigin = apiUrl ? new URL(apiUrl).origin : "";
-  } catch {
-    apiOrigin = "";
+  // The Sentia API (Cloudflare Worker) for real quotes, feedback, usage counts and the AI coach.
+  // Always allow the built-in api.sentiacoach.com host so the health check can run,
+  // plus an explicit NEXT_PUBLIC_SENTIA_API_URL when one is set.
+  const apiOrigins = new Set<string>();
+  for (const value of [apiUrl, SENTIA_COACH_API_URL]) {
+    try {
+      if (value) apiOrigins.add(new URL(value).origin);
+    } catch {
+      // Ignore a malformed override; normalizeApiUrl already rejects it for the client.
+    }
   }
+  const apiOrigin = [...apiOrigins].join(" ");
   // Google hosts serve reCAPTCHA (required by Firebase phone auth / SMS two-step verification).
   const scriptSrc = [
     "'self'",

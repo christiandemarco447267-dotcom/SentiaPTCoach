@@ -61,7 +61,7 @@ Repo **Settings → Pages → Custom domain** → type the same domain → **Sav
 
 | Service | Where | What to add |
 | --- | --- | --- |
-| Sentia API (Cloudflare Worker), if deployed | `worker/wrangler.toml` → `ALLOWED_ORIGINS` | `,https://app.example.com` then `npx wrangler deploy` |
+| Sentia API (Cloudflare Worker), if deployed | `worker/wrangler.toml` → `ALLOWED_ORIGINS` | `,https://app.example.com` then `npx wrangler deploy`. `https://sentiacoach.com` and `https://www.sentiacoach.com` are already allowed, and the worker route is `api.sentiacoach.com`. |
 | Firebase sign-in, if set up | Firebase console → Authentication → Settings → Authorized domains | `app.example.com` |
 | App store listings / privacy URLs | `STORE_LISTING.md` | the new privacy, terms and support links |
 

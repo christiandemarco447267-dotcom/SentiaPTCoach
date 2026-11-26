@@ -61,7 +61,7 @@ On GitHub, open the **Cursor-** repo → **Settings** → **Secrets and variable
 
 | Name | Value |
 | --- | --- |
-| `NEXT_PUBLIC_SENTIA_API_URL` | `https://sentia-api.yourname.workers.dev` (no slash at the end) |
+| `NEXT_PUBLIC_SENTIA_API_URL` | Leave unset to use `https://api.sentiacoach.com`. Set this only to point at a different address, such as `https://sentia-api.yourname.workers.dev` (no slash at the end). |
 | `NEXT_PUBLIC_FEEDBACK_EMAIL` *(optional)* | A public email for the fallback "Email it" button. Leave it out to keep your email off the site. |
 
 ⚠️ Use the **Variables** tab, not Secrets. The workflow reads `vars.NEXT_PUBLIC_SENTIA_API_URL`.

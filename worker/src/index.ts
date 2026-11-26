@@ -9,6 +9,7 @@
 //   GET  /search?q=       ticker autocomplete (Finnhub symbol search; needs FINNHUB_API_KEY)
 //   POST /push/subscribe  optional background price alerts: save a Web Push subscription + active alerts
 //   POST /push/unsubscribe
+//   /auth/* and /account/*  accounts (email + password, passkeys) and per-account cloud save — see accounts.ts
 //   cron (scheduled)      optional: checks stored alerts and sends Web Push (off until VAPID keys + a cron trigger are set)
 import { callCoach, CoachError, MAX_OUTPUT_TOKENS, resolveProvider, validateCoachRequest } from "./coach";
 import { intVar, type Env } from "./env";
@@ -19,6 +20,7 @@ import { getQuotes, parseSymbols } from "./quote";
 import { ipBucket, kvCounter, MemoryRateLimiter } from "./ratelimit";
 import { deleteRecord, pushConfigured, runAlertCron, saveRecord, validateSubscribe } from "./push";
 import { parseQuery, searchSymbols } from "./search";
+import { handleAccountRoute } from "./accounts";
 
 const quoteLimiter = new MemoryRateLimiter(60, 60_000);
 const eventLimiter = new MemoryRateLimiter(30, 60_000);
@@ -54,6 +56,7 @@ export async function handle(request: Request, env: Env, ctx: Ctx, f: typeof fet
           analytics: Boolean(env.SENTIA_KV),
           search: Boolean(env.FINNHUB_API_KEY),
           push: pushConfigured(env),
+          accounts: Boolean(env.SENTIA_KV),
         },
         200,
         { ...cors, "Cache-Control": "no-store" },
@@ -158,6 +161,9 @@ export async function handle(request: Request, env: Env, ctx: Ctx, f: typeof fet
         },
       });
     }
+
+    const account = await handleAccountRoute({ request, env, path, cors, ip, now, url, f });
+    if (account) return account;
 
     return errorJson(404, "Not found.", cors);
   } catch (error) {

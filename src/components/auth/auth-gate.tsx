@@ -14,12 +14,26 @@ const RESEND_COOLDOWN_S = 60;
 /**
  * Decides where the paper account lives before the workspace mounts:
  * signed in + verified → Firestore; guest/demo → this device; otherwise asks.
- * Without Firebase config the app stays guest-only, exactly as before.
+ * Sentia (Worker) accounts: signed in → the account's cloud save; otherwise this device.
+ * Without any accounts configured the app stays guest-only, exactly as before.
  */
 export function AuthGate({ children }: { children: (mode: StorageMode) => React.ReactNode }) {
-  const { configured, loading, user, emailVerified, guest } = useAuth();
+  const { configured, provider, loading, user, account, emailVerified, guest } = useAuth();
 
   if (!configured) return <>{children({ kind: "guest" })}</>;
+  if (provider === "sentia") {
+    // Sentia accounts are optional: the app opens straight into the on-device workspace, and a
+    // signed-in account switches it to the account's auto-saved progress.
+    if (loading) {
+      return (
+        <AuthCard title="Loading…">
+          <Loading label="Checking your account…" />
+        </AuthCard>
+      );
+    }
+    if (account) return <>{children({ kind: "cloud", uid: account.id, backend: "sentia" })}</>;
+    return <>{children({ kind: "guest" })}</>;
+  }
   if (loading) {
     return (
       <AuthCard title="Loading…">

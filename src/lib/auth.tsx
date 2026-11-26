@@ -3,6 +3,16 @@
 import type { User } from "firebase/auth";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { isFirebaseConfigured } from "./firebase-config";
+import { ACCOUNT_PROVIDER, type AccountProvider } from "./account-provider";
+import {
+  endSentiaSession,
+  getServerSessionSnapshot,
+  getSessionSnapshot,
+  startSentiaSession,
+  subscribeSession,
+  type PublicAccount,
+} from "./sentia-accounts";
+import { forgetAccountOnDevice } from "./account-sync";
 
 // The Firebase SDK (~100 KB+ gzipped) loads on demand, only when accounts are configured,
 // so guest/demo visitors never download it.
@@ -48,10 +58,17 @@ function subscribeGuest(listener: () => void) {
 type Snapshot = { user: User | null; emailVerified: boolean };
 
 export type AuthApi = {
-  /** False when NEXT_PUBLIC_FIREBASE_* isn't set: the app runs guest-only, as before. */
+  /** Which accounts this build offers: Firebase, Sentia (the Worker), or none (guest-only). */
+  provider: AccountProvider;
+  /** True when this build offers accounts of either kind. False = guest-only, as before. */
   configured: boolean;
   loading: boolean;
+  /** The signed-in Firebase user (provider "firebase" only). */
   user: User | null;
+  /** The signed-in Sentia account (provider "sentia" only). */
+  account: PublicAccount | null;
+  /** Signed in with either provider. */
+  signedIn: boolean;
   emailVerified: boolean;
   guest: boolean;
   continueAsGuest: () => void;
@@ -66,6 +83,12 @@ const AuthContext = createContext<AuthApi | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(isFirebaseConfigured ? null : { user: null, emailVerified: false });
   const guest = useSyncExternalStore(subscribeGuest, readGuest, () => false);
+  const sentia = useSyncExternalStore(subscribeSession, getSessionSnapshot, getServerSessionSnapshot);
+  const isSentia = ACCOUNT_PROVIDER === "sentia";
+
+  useEffect(() => {
+    if (isSentia) startSentiaSession();
+  }, [isSentia]);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -105,9 +128,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     try {
-      await flushCloudSave();
+      await Promise.race([flushCloudSave(), new Promise((resolve) => setTimeout(resolve, 5000))]);
     } catch {
       // Best effort: never block sign-out on a failed save.
+    }
+    if (ACCOUNT_PROVIDER === "sentia") {
+      // Keep the cloud copy; take this account's data off the device (guest data stays).
+      const uid = getSessionSnapshot().session?.account.id;
+      deactivateStore();
+      if (uid) {
+        const safe = (get: () => Storage) => {
+          try {
+            return get();
+          } catch {
+            return null;
+          }
+        };
+        forgetAccountOnDevice(uid, [safe(() => window.localStorage), safe(() => window.sessionStorage)]);
+      }
+      await endSentiaSession();
+      return;
     }
     deactivateStore();
     writeGuest(false);
@@ -119,9 +159,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<AuthApi>(
     () => ({
-      configured: isFirebaseConfigured,
-      loading: snapshot === null,
+      provider: ACCOUNT_PROVIDER,
+      configured: ACCOUNT_PROVIDER !== "none",
+      loading: isSentia ? sentia.status === "loading" : snapshot === null,
       user: snapshot?.user ?? null,
+      account: isSentia ? (sentia.session?.account ?? null) : null,
+      signedIn: isSentia ? Boolean(sentia.session) : Boolean(snapshot?.user),
       emailVerified: snapshot?.emailVerified ?? false,
       guest,
       continueAsGuest: () => writeGuest(true),
@@ -132,7 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshUser,
       signOut,
     }),
-    [snapshot, guest, refreshUser, signOut],
+    [snapshot, guest, refreshUser, signOut, sentia, isSentia],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

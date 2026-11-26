@@ -32,6 +32,9 @@ export function getSecurityHeaders(
     "https://www.google.com",
     "https://www.gstatic.com",
     "https://apis.google.com",
+    // "Continue with Google" (Google Identity Services) and "Continue with Apple" (Sign in with Apple JS).
+    "https://accounts.google.com",
+    "https://appleid.cdn-apple.com",
   ].join(" ");
 
   const csp = [
@@ -41,13 +44,14 @@ export function getSecurityHeaders(
     "object-src 'none'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    "style-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://accounts.google.com",
     `script-src ${scriptSrc}`,
     // 'self' for the API proxy; the Sentia API origin when configured;
     // Google/Firebase endpoints for Firebase Auth + Firestore (accounts & cloud sync).
-    `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ""} https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebaseapp.com https://www.google.com`,
+    `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ""} https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebaseapp.com https://www.google.com https://accounts.google.com`,
     // Firebase Auth helper iframe + reCAPTCHA challenge frames.
-    "frame-src 'self' https://*.firebaseapp.com https://www.google.com https://recaptcha.google.com",
+    // Google's sign-in button renders in an iframe; Apple's sign-in opens appleid.apple.com.
+    "frame-src 'self' https://*.firebaseapp.com https://www.google.com https://recaptcha.google.com https://accounts.google.com https://appleid.apple.com",
     "form-action 'self'",
   ].join("; ");
 

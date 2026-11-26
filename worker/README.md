@@ -83,6 +83,8 @@ Then follow **PILOT_SETUP.md** (in the main folder) to connect the website to it
 
 ## Settings you can change (`wrangler.toml` → `[vars]`)
 
+Accounts add three optional ones: `GOOGLE_CLIENT_ID`, `APPLE_SERVICES_ID` and `APPLE_BUNDLE_ID` (see "Accounts" below and UPLOAD_STEPS.md).
+
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `ALLOWED_ORIGINS` | GitHub Pages, `https://sentiacoach.com`, `https://www.sentiacoach.com` | Websites allowed to use the API (comma-separated). Localhost and the mobile app origins are always allowed. |
@@ -136,6 +138,22 @@ above/below, price). Each 15-minute cron run prices those tickers (same Finnhub 
 crossed, and deletes it (alerts are one-shot, like in the app). Subscriptions that the push service
 reports gone (404/410) are deleted; idle records expire after 60 days. iPhone users must add Sentia to
 the Home Screen (iOS 16.4+) for any web notification to work.
+
+## Accounts and automatic cloud save (`/auth/*`, `/account/*`)
+
+Used by the website when Firebase isn't configured. Needs only the `SENTIA_KV` namespace you already have — **no new secrets**.
+
+| Endpoint | What it does |
+| --- | --- |
+| `POST /auth/signup`, `POST /auth/signin` | Email + password. Passwords are hashed with PBKDF2-SHA256 (100,000 iterations — the Workers maximum — and a random salt per user). |
+| `POST /auth/signout`, `GET /auth/me`, `POST /auth/delete` | Sessions are random bearer tokens; only their SHA-256 is stored. "Remember me" = 30 days, otherwise 12 hours. Delete removes the account, its cloud save and its backup copy. |
+| `POST /auth/passkey/*` | Face ID / Touch ID / fingerprint / Windows Hello (WebAuthn passkeys, via `@simplewebauthn/server`). Passkeys are tied to the site's domain: `sentiacoach.com` (works on `www.` too), the `github.io` site, or `localhost`. |
+| `GET /auth/providers`, `POST /auth/oauth/nonce`, `POST /auth/oauth/verify` | "Continue with Google / Apple". The ID token's signature is checked against Google's / Apple's published keys (cached for an hour), plus issuer, audience, expiry and a one-time nonce. Off until `GOOGLE_CLIENT_ID` / `APPLE_SERVICES_ID` are set in `[vars]`. |
+| `GET/POST /account/state`, `GET/POST /account/backup` | Each account's saved progress (max 1 MB). Saves carry a revision number, so one device can't overwrite newer progress from another without the older copy being kept in the backup slot. |
+
+Protection: per-IP burst limits on sign-in/sign-up, 20 new accounts per IP per day, a 15-minute lockout after 10 wrong passwords for one email, one generic "Email or password is incorrect." message, and per-account limits on saves.
+
+**KV usage:** each automatic save is one KV write (saves are batched a few seconds after the last change). The free Workers plan includes 1,000 KV writes per day for the whole account; with more than a handful of daily users, move to Workers Paid ($5/month, 1 million writes per month).
 
 ## Reading feedback and stats
 

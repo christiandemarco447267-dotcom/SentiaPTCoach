@@ -30,7 +30,9 @@ type Phase = "checking" | "need-email" | "working" | "invalid" | "error" | "mfa"
  * actions); otherwise it signs them in.
  */
 export function EmailLinkComplete() {
-  const { configured, loading, user } = useAuth();
+  const { provider, loading, user } = useAuth();
+  // These Firebase screens only run with Firebase accounts (Sentia accounts have their own).
+  const configured = provider === "firebase";
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("checking");
   const [email, setEmail] = useState("");

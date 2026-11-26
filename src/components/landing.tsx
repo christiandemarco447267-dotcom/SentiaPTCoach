@@ -3,8 +3,7 @@ import { ArrowRight, Award, BellRing, ClipboardCheck, Compass, LineChart, Lock, 
 import { assetPath } from "@/lib/asset";
 import { SiteFooter } from "./site-footer";
 
-// Accounts are available when the Firebase client config is baked into the build.
-const ACCOUNTS_ENABLED = Boolean(process.env.NEXT_PUBLIC_FIREBASE_API_KEY && process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+import { ACCOUNTS_ENABLED } from "@/lib/account-provider";
 
 const TRUST = [
   {
@@ -52,9 +51,14 @@ export function Landing() {
           </div>
           <span className="row gap-sm">
             {ACCOUNTS_ENABLED ? (
-              <Link href="/signin" className="btn btn-sm">
-                Sign in
-              </Link>
+              <>
+                <Link href="/signin" className="btn btn-sm">
+                  Sign in
+                </Link>
+                <Link href="/signup" className="btn btn-sm btn-primary landing-signup">
+                  Create account
+                </Link>
+              </>
             ) : null}
             <Link href="/app" className="btn btn-sm">
               Open app <ArrowRight size={16} />

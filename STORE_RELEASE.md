@@ -200,6 +200,25 @@ The website can offer Firebase sign-in when `NEXT_PUBLIC_FIREBASE_*` is set. In 
 
 ---
 
+## 9b. Sentia accounts in the app (the Worker) — email + password ON, Face ID / Google / Apple OFF
+
+When the app is built with `NEXT_PUBLIC_SENTIA_API_URL` set (and no Firebase), it offers **Sentia accounts** served by the Worker: create an account / sign in with **email + password**, **Remember me**, and **automatic cloud save** of each account's progress. These work inside the app as-is (the Worker already allows the app origins `capacitor://localhost` and `https://localhost`).
+
+Three things are **hidden in the app build on purpose** (they work on the website):
+
+| Feature | Why it's off in the app | What turning it on takes |
+| --- | --- | --- |
+| **Face ID / Touch ID / fingerprint** (passkeys) | The app's WebView runs at `capacitor://localhost` / `https://localhost`, which can't own a passkey for `sentiacoach.com`. | 1. Pick a native passkey plugin (e.g. a Capacitor plugin wrapping Apple's `ASAuthorizationPlatformPublicKeyCredentialProvider` and Android Credential Manager). 2. iOS: Xcode → Signing & Capabilities → **Associated Domains** → `webcredentials:sentiacoach.com`, and host `https://sentiacoach.com/.well-known/apple-app-site-association` listing `TEAMID.com.sentia.papertrading` under `webcredentials`. 3. Android: host `https://sentiacoach.com/.well-known/assetlinks.json` with the app's package and SHA-256 signing fingerprint (`delegate_permission/common.get_login_creds`). 4. Worker: accept the Android origin `android:apk-key-hash:<hash>` as an expected origin for rpID `sentiacoach.com` (small change in `worker/src/passkeys.ts`). 5. Remove the `NEXT_PUBLIC_APP_TARGET === "native"` check in `platformPasskeyAvailable()` (`src/lib/sentia-accounts.ts`) and call the plugin instead of `@simplewebauthn/browser`. |
+| **Continue with Google** | Google blocks its web sign-in inside embedded WebViews (`disallowed_useragent`). | Use a native plugin such as `@capgo/capacitor-social-login` (or `@codetrix-studio/capacitor-google-auth`). Create **iOS** and **Android** OAuth clients in Google Cloud Console and set the plugin's *server / web client id* to the **Web** client id, so the ID token's audience is the same `GOOGLE_CLIENT_ID` the Worker already checks. Pass the Worker's nonce (`POST /auth/oauth/nonce`) to the plugin, then send the returned `idToken` to `POST /auth/oauth/verify` (`provider: "google"`). |
+| **Continue with Apple** | Apple's JS popup can't run in the app's WebView. | Use `@capacitor-community/apple-sign-in`. Xcode → **Sign in with Apple** capability. Set the Worker var `APPLE_BUNDLE_ID` to the app's bundle id (e.g. `com.sentia.papertrading`) so the token's audience is accepted. Pass the Worker's nonce to the plugin; the Worker accepts the nonce raw **or** SHA-256-hashed (Apple's native SDK hashes it). Send `response.identityToken` to `POST /auth/oauth/verify` (`provider: "apple"`, plus the name the plugin returns on first sign-in). |
+
+Rules to remember before shipping these:
+- **Apple Guideline 4.8:** if the iOS app offers Google sign-in, it must also offer Sign in with Apple. Ship both or neither.
+- **Apple Guideline 5.1.1(v):** in-app account deletion is already built (Settings → Delete my data deletes the account, its cloud save and its backup copy).
+- Privacy forms (both stores): add "Email address — linked to the user — App functionality" and "Other user content (practice portfolio) — linked to the user — App functionality".
+
+---
+
 ## 10. Release
 
 - **Google Play:** after production access is granted → *Production → Create new release* → upload the same (or a newer) `.aab` → roll out (start at 20% if you like) → Google reviews (hours to a few days).

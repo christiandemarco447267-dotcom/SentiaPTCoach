@@ -141,19 +141,61 @@ the Home Screen (iOS 16.4+) for any web notification to work.
 
 ## Accounts and automatic cloud save (`/auth/*`, `/account/*`)
 
-Used by the website when Firebase isn't configured. Needs only the `SENTIA_KV` namespace you already have — **no new secrets**.
+Used by the website when Firebase isn't configured. Needs the `SENTIA_KV` namespace you already have, plus the `RESEND_API_KEY`
+secret for email verification and password reset (see "Email verification (Resend)" below). Without that secret, existing
+accounts keep working but **new email + password sign-ups are paused** (no unverified bypass).
 
 | Endpoint | What it does |
 | --- | --- |
-| `POST /auth/signup`, `POST /auth/signin` | Email + password. Passwords are hashed with PBKDF2-SHA256 (100,000 iterations — the Workers maximum — and a random salt per user). |
+| `POST /auth/signup`, `POST /auth/signin` | Email + password. Passwords are hashed with PBKDF2-SHA256 (100,000 iterations — the Workers maximum — and a random salt per user). Sign-up creates an **unverified** account and emails a code + link; no session until confirmed. Signing in to an unconfirmed account answers `403 { needsVerification }` (and sends a fresh code if the last one expired). |
+| `POST /auth/verify`, `POST /auth/verify/resend` | Confirm with `{ email, code }` or `{ token }` (from the link) → session. Codes and links: 30 minutes, single use, stored as salted hashes, 5 wrong codes then a new email is needed. Resend: 1 per 60 s and 5 per 24 h per address; same answer for unknown addresses. |
+| `POST /auth/password/forgot`, `/check`, `/reset` | Password reset by email (same code + link, same limits). Always the same answer whether or not the account exists. A reset ends every existing session and confirms the email. |
 | `POST /auth/signout`, `GET /auth/me`, `POST /auth/delete` | Sessions are random bearer tokens; only their SHA-256 is stored. "Remember me" = 30 days, otherwise 12 hours. Delete removes the account, its cloud save and its backup copy. |
 | `POST /auth/passkey/*` | Face ID / Touch ID / fingerprint / Windows Hello (WebAuthn passkeys, via `@simplewebauthn/server`). Passkeys are tied to the site's domain: `sentiacoach.com` (works on `www.` too), the `github.io` site, or `localhost`. |
 | `GET /auth/providers`, `POST /auth/oauth/nonce`, `POST /auth/oauth/verify` | "Continue with Google / Apple". The ID token's signature is checked against Google's / Apple's published keys (cached for an hour), plus issuer, audience, expiry and a one-time nonce. Off until `GOOGLE_CLIENT_ID` / `APPLE_SERVICES_ID` are set in `[vars]`. |
 | `GET/POST /account/state`, `GET/POST /account/backup` | Each account's saved progress (max 1 MB). Saves carry a revision number, so one device can't overwrite newer progress from another without the older copy being kept in the backup slot. |
 
+Older accounts (created before email verification existed) count as verified, so nobody is locked out. Unconfirmed sign-ups
+are deleted after 7 days (lazily, plus a KV expiry). A verified Google / Apple sign-in for the same address takes over an
+unconfirmed email sign-up and drops its password, so nobody can "pre-register" someone else's email.
+
 Protection: per-IP burst limits on sign-in/sign-up, 20 new accounts per IP per day, a 15-minute lockout after 10 wrong passwords for one email, one generic "Email or password is incorrect." message, and per-account limits on saves.
 
 **KV usage:** each automatic save is one KV write (saves are batched a few seconds after the last change). The free Workers plan includes 1,000 KV writes per day for the whole account; with more than a handful of daily users, move to Workers Paid ($5/month, 1 million writes per month).
+
+## Email verification (Resend)
+
+Account emails (verify your email, reset your password) are sent with [Resend](https://resend.com). Free plan (checked
+Nov 26, 2026 on resend.com/pricing): **3,000 emails a month, at most 100 a day**, 3 domains, 30-day log retention.
+
+1. Create a free account at <https://resend.com/signup>.
+2. **Domains → Add domain** → `sentiacoach.com` (pick the US East region).
+3. Resend shows 3 DNS records. In Cloudflare → `sentiacoach.com` → **DNS → Records**, add exactly what Resend shows
+   (or press Resend's **Sign in to Cloudflare** button to add them automatically):
+   | Type | Name | Value (copy from Resend) | Notes |
+   | --- | --- | --- | --- |
+   | MX | `send` | `feedback-smtp.us-east-1.amazonses.com` | Priority 10. Only for the `send` subdomain (bounces). |
+   | TXT | `send` | `v=spf1 include:amazonses.com ~all` | SPF for the `send` subdomain only. |
+   | TXT | `resend._domainkey` | `p=…` (long key) | DKIM. Proxy status: DNS only. |
+   **Don't touch the existing root records** that Cloudflare Email Routing created for `support@sentiacoach.com`
+   (the `@` MX records `route1/2/3.mx.cloudflare.net` and the `@` TXT `v=spf1 include:_spf.mx.cloudflare.net ~all`).
+   Resend's records live on `send.` and `resend._domainkey.`, so both work side by side.
+4. Press **Verify DNS records** in Resend (usually minutes, up to 72 hours).
+5. **API Keys → Create API key** → permission *Sending access*, domain `sentiacoach.com` → copy it (starts with `re_`).
+6. From this `worker` folder: `npx wrangler secret put RESEND_API_KEY` and paste the key, then `npx wrangler deploy`.
+7. Check `https://api.sentiacoach.com/health` shows `"emailVerification": true`, then create a test account.
+
+`EMAIL_FROM` in `wrangler.toml` sets the sender (default `Sentia <no-reply@sentiacoach.com>`); replies go to
+`support@sentiacoach.com`. `SITE_URL` (default `https://sentiacoach.com`) is where email buttons point when a request
+doesn't come from a known website; requests from the github.io site get links back to the github.io site.
+
+## Help chat (`POST /support/chat`)
+
+The website's floating **Help** button answers from the FAQ on the device first. Questions the FAQ can't match are sent
+here; the Worker asks the same AI provider as the coach (`OPENAI_API_KEY`) with a strict prompt that only allows answers
+from `src/support-faq.json`, never investment advice, and never claims to change an account. It answers
+`{ answered: false }` (the app then offers "Email support@sentiacoach.com") when it can't, when no AI key is set, or when the
+limits are reached: 8 questions/min and 40/day per visitor, 1,000/day in total, 400 characters per question.
 
 ## Reading feedback and stats
 

@@ -33,7 +33,7 @@ export default function DisclaimerPage() {
         </p>
       </section>
       <p className="small muted">
-        See also the <Link href="/terms">Terms of use</Link> and <Link href="/privacy">Privacy policy</Link>.
+        See also the <Link href="/terms">Terms and Conditions</Link> and <Link href="/privacy">Privacy Policy</Link>.
       </p>
     </LegalPage>
   );

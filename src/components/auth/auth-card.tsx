@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { assetPath } from "@/lib/asset";
 import { ACCOUNT_PROVIDER } from "@/lib/account-provider";
+import { AuthLegalFooter } from "../site-footer";
 
 /** Branded, centered card used by the sign-in / sign-up / recovery screens. */
 export function AuthCard({ title, subtitle, children, footer }: { title: string; subtitle?: string; children: ReactNode; footer?: ReactNode }) {
@@ -21,7 +22,8 @@ export function AuthCard({ title, subtitle, children, footer }: { title: string;
           </div>
           {children}
         </div>
-        {footer ? <div className="small muted">{footer}</div> : null}
+        {footer ? <div className="small muted auth-footer-links">{footer}</div> : null}
+        <AuthLegalFooter />
       </div>
     </main>
   );
@@ -40,15 +42,15 @@ export function FormMessage({ tone, children }: { tone: "ok" | "error"; children
 export function NotConfigured() {
   if (ACCOUNT_PROVIDER === "sentia") {
     return (
-      <AuthCard title="Not available yet" subtitle="Password reset by email and email sign-in links aren't available for Sentia accounts yet.">
+      <AuthCard title="This link isn't used here" subtitle="Sentia accounts sign in with a password, Face ID / Touch ID, or Google / Apple.">
         <p className="muted small" style={{ margin: 0 }}>
-          If you turned on Face ID / Touch ID or signed up with Google or Apple, sign in that way. Otherwise contact support from the Help page and we&apos;ll help you get back in.
+          Forgot your password? Reset it by email. Still stuck? Write to support@sentiacoach.com and we&apos;ll help you get back in.
         </p>
         <Link href="/signin" className="btn btn-primary">
           Back to sign in
         </Link>
-        <Link href="/support" className="btn">
-          Help &amp; support
+        <Link href="/forgot-password" className="btn">
+          Reset my password
         </Link>
       </AuthCard>
     );

@@ -18,6 +18,7 @@ import { AccountSecurity } from "./auth/account-security";
 import { SentiaAccountPanel } from "./auth/sentia-account-panel";
 import { AboutPanel, DeleteDataPanel } from "./delete-data";
 import { AppLegalFooter } from "./site-footer";
+import { HelpChatLauncher } from "./help-chat";
 import { REAUTH_NOTICE_KEY } from "./auth/email-link-complete";
 import { useReauth } from "./auth/reauth";
 import { CsvExport, HabitSettings, NotificationSettings, ThemeSettings } from "./settings-extras";
@@ -245,7 +246,7 @@ export function SettingsView() {
           )}
         </ul>
         <span className="small muted settings-legal">
-          Read the <Link href="/privacy">Privacy policy</Link> and <Link href="/terms">Terms of use</Link>.
+          Read the <Link href="/privacy">Privacy Policy</Link> and <Link href="/terms">Terms and Conditions</Link>.
         </span>
       </Panel>
 
@@ -297,6 +298,7 @@ export function SettingsView() {
       </div>
       {reauth.dialog}
       <AppLegalFooter version={APP_VERSION} />
+      <HelpChatLauncher className="help-launcher-app" />
     </div>
   );
 }

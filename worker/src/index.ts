@@ -7,6 +7,7 @@
 //   GET  /stats?days=7    owner only: daily usage counts
 //   POST /coach           streamed AI coach answer (text/plain)
 //   GET  /search?q=       ticker autocomplete (Finnhub symbol search; needs FINNHUB_API_KEY)
+//   POST /support/chat    Help chat fallback: short answers grounded in the support FAQ (needs an AI key)
 //   POST /push/subscribe  optional background price alerts: save a Web Push subscription + active alerts
 //   POST /push/unsubscribe
 //   /auth/* and /account/*  accounts (email + password, passkeys) and per-account cloud save — see accounts.ts
@@ -21,6 +22,8 @@ import { ipBucket, kvCounter, MemoryRateLimiter } from "./ratelimit";
 import { deleteRecord, pushConfigured, runAlertCron, saveRecord, validateSubscribe } from "./push";
 import { parseQuery, searchSymbols } from "./search";
 import { handleAccountRoute } from "./accounts";
+import { emailConfigured } from "./mailer";
+import { callSupport, SUPPORT_EMAIL, validateSupportRequest } from "./support-chat";
 
 const quoteLimiter = new MemoryRateLimiter(60, 60_000);
 const eventLimiter = new MemoryRateLimiter(30, 60_000);
@@ -28,6 +31,13 @@ const feedbackBurst = new MemoryRateLimiter(3, 60_000);
 const coachBurst = new MemoryRateLimiter(6, 60_000);
 const searchLimiter = new MemoryRateLimiter(40, 60_000);
 const pushLimiter = new MemoryRateLimiter(20, 60_000);
+const supportBurst = new MemoryRateLimiter(8, 60_000);
+export const SUPPORT_DAILY_LIMIT_PER_IP = 40;
+export const SUPPORT_DAILY_LIMIT_TOTAL = 1000;
+
+export function resetSupportLimiter() {
+  (supportBurst as unknown as { hits: Map<string, unknown> }).hits.clear();
+}
 
 type Ctx = Pick<ExecutionContext, "waitUntil">;
 
@@ -57,6 +67,8 @@ export async function handle(request: Request, env: Env, ctx: Ctx, f: typeof fet
           search: Boolean(env.FINNHUB_API_KEY),
           push: pushConfigured(env),
           accounts: Boolean(env.SENTIA_KV),
+          emailVerification: emailConfigured(env),
+          supportChat: Boolean(resolveProvider(env)),
         },
         200,
         { ...cors, "Cache-Control": "no-store" },
@@ -160,6 +172,28 @@ export async function handle(request: Request, env: Env, ctx: Ctx, f: typeof fet
           "Access-Control-Expose-Headers": "X-Coach-Provider, X-Coach-Model",
         },
       });
+    }
+
+    if (path === "/support/chat" && request.method === "POST") {
+      const fallback = { answered: false, supportEmail: SUPPORT_EMAIL };
+      if (!resolveProvider(env)) return json({ ...fallback, reason: "not-configured" }, 200, { ...cors, "Cache-Control": "no-store" });
+      if (!supportBurst.check(ip, now).ok) return errorJson(429, "Slow down a little and try again in a minute.", cors);
+      const parsed = validateSupportRequest(await readJson(request, 6000));
+      if (!parsed.ok) return errorJson(400, parsed.error, cors);
+      if (env.SENTIA_KV) {
+        const mine = await kvCounter(env.SENTIA_KV, await ipBucket(ip, "support", now), SUPPORT_DAILY_LIMIT_PER_IP, 86_400);
+        if (!mine.ok) return json({ ...fallback, reason: "daily-limit" }, 200, { ...cors, "Cache-Control": "no-store" });
+        const all = await kvCounter(env.SENTIA_KV, `rl:support-total:${new Date(now).toISOString().slice(0, 10)}`, SUPPORT_DAILY_LIMIT_TOTAL, 86_400);
+        if (!all.ok) return json({ ...fallback, reason: "daily-limit" }, 200, { ...cors, "Cache-Control": "no-store" });
+      }
+      let answer;
+      try {
+        answer = await callSupport(env, parsed.value, f);
+      } catch {
+        return json({ ...fallback, reason: "provider-error" }, 200, { ...cors, "Cache-Control": "no-store" });
+      }
+      if (!answer || !answer.answered) return json(fallback, 200, { ...cors, "Cache-Control": "no-store" });
+      return json({ answered: true, answer: answer.answer, supportEmail: SUPPORT_EMAIL }, 200, { ...cors, "Cache-Control": "no-store" });
     }
 
     const account = await handleAccountRoute({ request, env, path, cors, ip, now, url, f });

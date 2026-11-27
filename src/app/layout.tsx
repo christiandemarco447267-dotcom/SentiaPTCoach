@@ -9,6 +9,7 @@ import "./polish.css";
 import "./fixpass.css";
 import "./publish.css";
 import "./accounts.css";
+import "./help.css";
 
 const dancingScript = Dancing_Script({
   variable: "--font-brand",

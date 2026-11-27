@@ -20,21 +20,23 @@ import {
   signInWithPassword,
   signUpWithPassword,
   type PublicAccount,
+  type VerificationNeeded,
 } from "@/lib/sentia-accounts";
 import { AuthCard, FormMessage } from "./auth-card";
 import { OrDivider, SocialSignIn } from "./social-sign-in";
+import { VerifyEmailStep } from "./sentia-verify";
 
-function nextFromLocation(): string {
+export function nextFromLocation(): string {
   if (typeof window === "undefined") return "/app";
   return safeNextPath(new URLSearchParams(window.location.search).get("next"));
 }
 
-function messageOf(e: unknown, fallback = "Something went wrong. Please try again."): string {
+export function messageOf(e: unknown, fallback = "Something went wrong. Please try again."): string {
   return e instanceof AccountError ? e.message : fallback;
 }
 
 /** Is a platform authenticator (Face ID / Touch ID / fingerprint / Windows Hello) usable here? */
-function usePlatformPasskey(): boolean {
+export function usePlatformPasskey(): boolean {
   const [available, setAvailable] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -52,7 +54,7 @@ function BiometricIcon({ apple }: { apple: boolean }) {
 
 // ---- shared fields ---------------------------------------------------------------------------
 
-function PasswordField({
+export function PasswordField({
   id,
   label,
   value,
@@ -103,7 +105,7 @@ function PasswordField({
   );
 }
 
-function RememberMe({ checked, onChange, id }: { checked: boolean; onChange: (v: boolean) => void; id: string }) {
+export function RememberMe({ checked, onChange, id }: { checked: boolean; onChange: (v: boolean) => void; id: string }) {
   return (
     <label className="check-row remember-row" htmlFor={id}>
       <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} aria-describedby={`${id}-hint`} />
@@ -119,7 +121,7 @@ function RememberMe({ checked, onChange, id }: { checked: boolean; onChange: (v:
 
 // ---- "Turn on Face ID / Touch ID?" after sign-up or first password sign-in ---------------------
 
-function PasskeyOffer({ account, onDone }: { account: PublicAccount; onDone: () => void }) {
+export function PasskeyOffer({ account, onDone }: { account: PublicAccount; onDone: () => void }) {
   const label = currentBiometricLabel();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -173,7 +175,7 @@ export function deviceName(): string {
 }
 
 /** After signing in: offer Face ID / Touch ID once per account, then go on to the app. */
-function useAfterSignIn(passkeyReady: boolean) {
+export function useAfterSignIn(passkeyReady: boolean) {
   const router = useRouter();
   const [offerFor, setOfferFor] = useState<PublicAccount | null>(null);
   const go = () => router.replace(nextFromLocation());
@@ -200,9 +202,27 @@ export function SentiaSignInForm() {
   }, [remember]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [verify, setVerify] = useState<VerificationNeeded | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
 
   if (offerFor) return <PasskeyOffer account={offerFor} onDone={go} />;
+  if (verify) {
+    return (
+      <VerifyEmailStep
+        email={verify.email}
+        remember={remember}
+        notice={verify.emailSent ? `We sent a new 6-digit code to ${verify.email}.` : "Your email isn't confirmed yet. Enter the 6-digit code we emailed you, or send a new one."}
+        sendError={verify.sendError}
+        onVerified={finish}
+        onStartOver={() => {
+          setVerify(null);
+          setBusy(false);
+          setPassword("");
+        }}
+        startOverLabel="Use a different account"
+      />
+    );
+  }
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -215,7 +235,9 @@ export function SentiaSignInForm() {
     setBusy(true);
     setError(null);
     try {
-      finish(await signInWithPassword({ email: email.trim(), password, remember }));
+      const result = await signInWithPassword({ email: email.trim(), password, remember });
+      if ("needsVerification" in result) setVerify(result);
+      else finish(result);
     } catch (e) {
       setError(messageOf(e));
       setBusy(false);
@@ -271,6 +293,9 @@ export function SentiaSignInForm() {
         </div>
         <PasswordField id={`${ids}-password`} label="Password" value={password} onChange={setPassword} autoComplete="current-password" />
         <RememberMe id={`${ids}-remember`} checked={remember} onChange={setRemember} />
+        <Link href="/forgot-password" className="small auth-inline-link">
+          Forgot password?
+        </Link>
         <button type="submit" className="btn btn-primary" disabled={busy || !password}>
           {busy ? "Signing in…" : "Sign in"}
         </button>
@@ -299,14 +324,34 @@ export function SentiaSignUpForm() {
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [verify, setVerify] = useState<VerificationNeeded | null>(null);
 
   if (offerFor) return <PasskeyOffer account={offerFor} onDone={go} />;
+  if (verify) {
+    return (
+      <VerifyEmailStep
+        email={verify.email}
+        remember={remember}
+        notice={`We sent a 6-digit code and a confirmation link to ${verify.email}.`}
+        sendError={verify.sendError}
+        onVerified={finish}
+        onStartOver={() => {
+          setVerify(null);
+          setBusy(false);
+          setSubmitted(false);
+          setPassword("");
+          setConfirm("");
+        }}
+        startOverLabel="Wrong email? Start over"
+      />
+    );
+  }
 
   const strength = passwordStrength(password);
   const emailError = submitted && !looksLikeEmail(email) ? "Enter a valid email address." : null;
   const pwError = submitted || password.length >= 8 ? (password ? passwordError(password, email) : submitted ? "Choose a password." : null) : null;
   const confirmError = (submitted || confirm.length >= password.length) && confirm && confirm !== password ? "Passwords don't match." : submitted && !confirm ? "Type your password again." : null;
-  const termsError = submitted && !accepted ? "Please accept the Terms and Privacy Policy to continue." : null;
+  const termsError = submitted && !accepted ? "Please agree to the Terms and Conditions and Privacy Policy to continue." : null;
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -320,7 +365,7 @@ export function SentiaSignUpForm() {
     }
     setBusy(true);
     try {
-      finish(await signUpWithPassword({ email: email.trim(), password, name: name.trim(), remember }));
+      setVerify(await signUpWithPassword({ email: email.trim(), password, name: name.trim(), remember }));
     } catch (e) {
       setError(messageOf(e));
       setBusy(false);
@@ -396,11 +441,11 @@ export function SentiaSignUpForm() {
             <span>
               I agree to the{" "}
               <Link href="/terms" target="_blank" rel="noopener">
-                Terms of use
+                Terms and Conditions
               </Link>{" "}
               and{" "}
               <Link href="/privacy" target="_blank" rel="noopener">
-                Privacy policy
+                Privacy Policy
               </Link>
               .
             </span>
@@ -416,7 +461,7 @@ export function SentiaSignUpForm() {
         </button>
         {error ? <FormMessage tone="error">{error}</FormMessage> : null}
         <p className="small muted" style={{ margin: 0 }}>
-          Anything you&apos;ve already practiced on this device comes with you into the new account.
+          We&apos;ll email you a code to confirm it&apos;s really your address. Anything you&apos;ve already practiced on this device comes with you into the new account.
         </p>
       </form>
     </AuthCard>

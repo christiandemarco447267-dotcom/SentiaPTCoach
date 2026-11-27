@@ -3,7 +3,7 @@ import { handle } from "../src/index";
 import { resetAccountLimiters } from "../src/accounts";
 import { toB64url } from "../src/auth";
 import { relyingPartyFor } from "../src/passkeys";
-import { ctx, FakeKV, makeEnv, PAGES } from "./helpers";
+import { ctx, FakeKV, makeEnv, PAGES, signUpAndVerify } from "./helpers";
 
 const NOW = Date.UTC(2026, 10, 26, 15, 0, 0);
 const SITE = "https://sentiacoach.com";
@@ -150,7 +150,7 @@ describe("passkeys (Face ID / Touch ID)", () => {
   beforeEach(async () => {
     resetAccountLimiters();
     env = makeEnv({ ALLOWED_ORIGINS: "https://sentiacoach.com,https://www.sentiacoach.com" }, new FakeKV());
-    token = (await call(env, "/auth/signup", { body: { email: "pk@example.com", password: "a long passphrase" } })).body.token;
+    token = (await signUpAndVerify(env, { email: "pk@example.com", password: "a long passphrase" }, { now: NOW, origin: SITE })).body.token;
   });
 
   it("registers a platform passkey and signs in with it (www works too)", async () => {

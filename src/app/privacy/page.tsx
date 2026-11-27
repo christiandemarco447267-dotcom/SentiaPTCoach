@@ -1,190 +1,202 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage } from "@/components/legal-page";
+import { SUPPORT_EMAIL, supportMailto } from "@/lib/support";
 
 export const metadata: Metadata = {
-  title: "Privacy",
-  description: "How Sentia (website, Android and iOS apps) handles your data: your paper portfolio stays on your device or in your account; optional feedback, opt-in anonymous usage counts and the AI coach are described exactly here.",
+  title: "Privacy Policy",
+  description:
+    "How Sentia (website, Android and iOS apps) handles your data: optional accounts, email verification, cloud save, the AI coach and Help chat, market data, feedback and opt-in usage counts. We don't sell your data.",
 };
 
 export default function PrivacyPage() {
   return (
-    <LegalPage eyebrow="Legal" title="Privacy" updated="October 30, 2026">
+    <LegalPage eyebrow="Legal" title="Privacy Policy" updated="November 26, 2026">
       <section className="stack gap-sm">
         <h2>The short version</h2>
+        <ul className="muted">
+          <li>Sentia is a paper-trading practice app. You can use it without an account, and then your data stays on your device.</li>
+          <li>If you create an account, we keep only what is needed to run it: your email, a securely hashed password (or your Google / Apple sign-in ID), passkey public keys, and your practice portfolio.</li>
+          <li>We don&apos;t sell or rent your data, we don&apos;t show ads, and we don&apos;t use tracking cookies or third-party analytics.</li>
+          <li>You can delete your account and everything we store for it at any time.</li>
+        </ul>
         <p className="muted">
-          This policy covers the Sentia website and the Sentia apps for Android and iOS. In demo mode, your portfolio,
-          trades, theses, and profile live only on your own device (in your browser, or in the app&apos;s private storage). Where accounts are
-          enabled, you can optionally sign in so your paper account is saved to your account and synced across your
-          devices. We do not sell your data. Sentia uses no cookies for tracking and no third-party analytics. If you opt
-          in, it counts page views and a few actions anonymously (details below); it&apos;s off until you say yes.
+          This policy covers the Sentia website (sentiacoach.com) and the Sentia apps for Android and iOS (together, &ldquo;Sentia&rdquo;). Sentia is run by
+          Christian DeMarco (&ldquo;we&rdquo;, &ldquo;us&rdquo;). Questions: <a href={supportMailto("Privacy question")}>{SUPPORT_EMAIL}</a>.
         </p>
       </section>
 
       <section className="stack gap-sm">
-        <h2>What is stored, and where</h2>
+        <h2>1. Using Sentia without an account</h2>
+        <p className="muted">
+          Everything you enter (cash balance, holdings, trades, theses, journal, profile name and preferences) is saved on the device you are using: in your
+          browser&apos;s <code>localStorage</code> on the web, or in the app&apos;s private storage on Android and iOS. It is not sent to us. The website also
+          keeps an offline copy of the app&apos;s own files so it opens without a connection. Clearing your browser data or uninstalling the app deletes what is on
+          that device.
+        </p>
+      </section>
+
+      <section className="stack gap-sm">
+        <h2>2. Accounts (optional)</h2>
         <ul className="muted">
           <li>
-            Everything you enter (cash balance, holdings, transactions, theses, profile name and preferences) is saved
-            on the device you are using: in your browser&apos;s <code>localStorage</code> on the web, or in the
-            app&apos;s private on-device storage in the Android and iOS apps. The website also keeps an offline copy of
-            the app&apos;s own files (never your prices, coach answers or feedback) so it opens without a connection.
+            <strong>Email and password.</strong> We store your email address, your name if you give one, and your password only as a salted PBKDF2-SHA256 hash
+            (we never store or see the password itself).
           </li>
           <li>
-            <strong>Demo mode:</strong> your portfolio is never sent to a server. The only exceptions are the optional
-            features below, each of which you trigger yourself (asking the AI coach, sending feedback, opting in to usage
-            counts) or which send only ticker symbols (real prices, ticker search).
+            <strong>Email verification.</strong> New email accounts must confirm the address before they can be used. We email a 6-digit code and a one-time link
+            that expire after 30 minutes; only hashed copies are stored. Unconfirmed sign-ups are deleted after 7 days.
           </li>
           <li>
-            <strong>Phone notifications</strong> for price alerts are shown by your device from data already on it. The
-            optional <strong>Background alerts (beta)</strong> switch, when the deployment offers it, sends your browser&apos;s
-            push address and your <em>active</em> price alerts (ticker, above/below, price) to the Sentia API so it can notify
-            you while the app is closed. Nothing else from your account is sent, triggered alerts are deleted from the server,
-            and turning the switch off removes the rest.
+            <strong>Password reset.</strong> If you ask, we email a one-time code and link (also hashed, also 30 minutes). Resetting your password signs you out
+            everywhere else.
           </li>
           <li>
-            <strong>Signed-in accounts</strong> (when the deployment has accounts enabled): your email address and, if you
-            turn on two-step verification, your phone number are held by Firebase Authentication (Google). Your paper
-            account (cash, holdings, ledger, theses, profile) is stored in Google Cloud Firestore under your account, and
-            security rules allow only you — signed in with a verified email — to read or change it.
+            <strong>Face ID / Touch ID / passkeys.</strong> If you turn this on, your device creates a passkey. Your face or fingerprint never leaves your device;
+            we store only the passkey&apos;s public key, a name for it (like &ldquo;iPhone&rdquo;) and when it was created and last used.
           </li>
           <li>
-            <strong>Settings → Delete my data</strong> permanently deletes everything on the device and, if you are
-            signed in, your account and its cloud data too (see <Link href="/delete-account">Delete your data</Link>).
-            Clearing your browser data or uninstalling the app also deletes what is on that device. For accounts, <strong>Reset workspace</strong> replaces the saved copy.
-            Use <strong>Export JSON</strong> in Settings to keep your own backup.
+            <strong>Continue with Google or Apple.</strong> We receive a signed token from Google or Apple with an ID for you, your email (Apple may give a private
+            relay address), whether they verified it, and sometimes your name. We use it only to sign you in. If the provider hasn&apos;t verified the email, we
+            don&apos;t use it as your account email.
+          </li>
+          <li>
+            <strong>Sessions and &ldquo;Remember me&rdquo;.</strong> When you sign in, your browser keeps a random session token. With Remember me on, it is kept in{" "}
+            <code>localStorage</code> for up to 30 days; with it off, in <code>sessionStorage</code> until you close the tab (at most 12 hours). We store only a hash of
+            the token. These are not cookies and are not used for tracking.
+          </li>
+          <li>
+            <strong>Cloud save.</strong> While you&apos;re signed in, your practice portfolio is saved to your account automatically so it follows you to other
+            devices. If two devices disagree, the older copy is kept as one backup you can restore in Settings.
+          </li>
+          <li>
+            <strong>Security limits.</strong> To stop abuse we keep short-lived counters: failed sign-ins per email (15 minutes), emails sent per address (24
+            hours), and requests per network, keyed by a one-way hash of your IP address that changes daily. We don&apos;t store IP addresses.
           </li>
         </ul>
       </section>
 
       <section className="stack gap-sm">
-        <h2>Market data</h2>
-        <p className="muted">
-          The Sentia API lives at <strong>api.sentiacoach.com</strong>. Until that address answers, prices are
-          simulated in your browser, labelled <strong>Demo</strong>, and no market-data request leaves your device.
-          When it does answer, your browser sends it the <strong>ticker symbols</strong> on screen; the API
-          fetches quotes from Finnhub (or Yahoo Finance as a fallback) using a key kept on the server. Your holdings,
-          share counts and other data are never sent for prices. Like any web server, Cloudflare processes your IP
-          address to deliver the request; the API uses it only in memory for rate limiting and doesn&apos;t store it.
-        </p>
-      </section>
-
-      <section className="stack gap-sm">
-        <h2>Feedback and the survey</h2>
+        <h2>3. Who processes data for us</h2>
+        <p className="muted">We use a small number of service providers, only for the purposes below:</p>
         <ul className="muted">
           <li>
-            When you press <strong>Send feedback</strong>, Sentia sends: the type (bug, idea or praise), your message,
-            your email only if you typed one, and — if the &ldquo;technical details&rdquo; box is ticked (it is by
-            default and you can untick it) — the page you were on, the app version, your screen size, your
-            browser&apos;s user-agent string and whether prices were live or demo.
+            <strong>Cloudflare</strong> runs the Sentia API (api.sentiacoach.com) and stores account and cloud-save data in Cloudflare Workers KV. Like any web
+            server, it processes your IP address to deliver requests.
           </li>
           <li>
-            A summary of your paper portfolio (total value, cash, tickers and share counts) is included{" "}
-            <strong>only if you tick that box</strong>. It is unticked by default.
+            <strong>Resend</strong> delivers our account emails (verification and password reset). It receives your email address and the email&apos;s content.
           </li>
           <li>
-            The one-time survey (shown once, about a week after you start) sends your 1–5 rating and your optional
-            answer, nothing else.
+            <strong>OpenAI</strong> writes answers for Ask Sentia (the AI coach) and for Help chat questions the FAQ can&apos;t answer (see section 4).
           </li>
           <li>
-            Messages are stored in the site owner&apos;s Cloudflare account (Workers KV) for up to one year and may be
-            forwarded to the owner&apos;s private Discord or Slack channel. Only the owner can read them. To stop spam,
-            the API keeps a short-lived counter keyed by a one-way hash of your IP address (the hash changes daily and
-            the counter expires within an hour); the IP address itself isn&apos;t stored.
+            <strong>Finnhub and Yahoo Finance</strong> provide market prices. They receive only the ticker symbols being looked up, from our server, never your
+            identity or holdings.
           </li>
           <li>
-            On builds without the Sentia API, the feedback button instead opens a prefilled email or a GitHub issue;
-            nothing is sent until you send that email or submit the issue yourself (GitHub issues are public).
+            <strong>Google and Apple</strong>, only if you choose to sign in with them, under their own privacy policies.
+          </li>
+          <li>
+            <strong>GitHub Pages</strong> hosts the website&apos;s files and may log standard technical information (such as IP address and browser type) when
+            serving pages.
           </li>
         </ul>
       </section>
 
       <section className="stack gap-sm">
-        <h2>Anonymous usage counts (opt-in)</h2>
+        <h2>4. AI coach and Help chat</h2>
         <ul className="muted">
           <li>
-            Off by default. A small notice asks once; you can change your answer anytime in{" "}
-            <strong>Settings → Usage statistics</strong>. Your choice is remembered in your browser&apos;s
-            localStorage (not a cookie).
+            <strong>Ask Sentia (AI coach).</strong> Quick-question chips and the offline coach run on your device. When you type a question, it is sent with a short
+            summary of your paper account (cash and total value, holdings, up to 10 recent trades with mood tags, Bias Radar findings, Discipline Score, thesis
+            titles and risks, and your return vs. the S&amp;P 500) through the Sentia API to OpenAI. It never includes your name, email or profile. Your
+            conversation is saved only on your device; &ldquo;Clear chat&rdquo; removes it.
           </li>
           <li>
-            When on, Sentia sends only: a page name (for example <code>/app/trade</code>, never query strings) when
-            you open a page, and these named events when they happen: <code>trade_placed</code>,{" "}
-            <code>thesis_created</code>, <code>time_machine_finished</code>, <code>coach_asked</code>,{" "}
-            <code>feedback_sent</code>.
+            <strong>Help chat.</strong> Answers from the FAQ are found on your device. If the FAQ has no match, your question (and the last few messages of that
+            chat) is sent to OpenAI through the Sentia API, without any portfolio or account data. The chat refuses to send anything that looks like a code or a
+            password.
+          </li>
+          <li>The Sentia API doesn&apos;t store questions or answers. It counts questions per network per day (using the daily-changing IP hash) to limit costs.</li>
+        </ul>
+      </section>
+
+      <section className="stack gap-sm">
+        <h2>5. Feedback and usage counts</h2>
+        <ul className="muted">
+          <li>
+            <strong>Feedback</strong> sends your message, the type (bug, idea or praise), your email only if you type one, and (if the technical-details box is ticked)
+            the page, app version, screen size, browser user-agent and whether prices were live. A portfolio summary is included only if you tick that box. Messages
+            are kept in Cloudflare Workers KV for up to one year and may be forwarded to a private Discord or Slack channel only we can read.
           </li>
           <li>
-            The API adds them to <strong>daily totals</strong> (e.g. &ldquo;37 trades placed on Oct 30&rdquo;) and keeps
-            nothing else: no cookies, no user or device ID, no IP address, no tickers, amounts or text. Totals are kept
-            for about 13 months.
+            <strong>Anonymous usage counts</strong> are off until you opt in (Settings → Usage statistics). When on, Sentia sends page names and a few named events
+            (for example <code>trade_placed</code>), which are added to daily totals. No user ID, device ID, IP address, tickers, amounts or text are kept. Totals are
+            kept for about 13 months.
           </li>
         </ul>
       </section>
 
       <section className="stack gap-sm">
-        <h2>AI coach</h2>
-        <p className="muted">
-          Quick-question chips and the offline coach run entirely in your browser. When the deployment has the AI coach
-          enabled and you type a question in Ask Sentia, your question and a short summary of your paper account are
-          sent through the Sentia API to an AI provider (OpenAI or Anthropic, as configured by the site owner) to write
-          the answer. The summary contains: cash and total value, holdings (ticker, shares, average cost, price, value,
-          gain), up to 10 recent trades with any mood tags, Bias Radar findings, your Discipline Score, your thesis
-          titles/conviction/risks, and your return vs. the S&amp;P 500. It never includes your name, email or profile.
-          The Sentia API doesn&apos;t store questions or answers; the provider processes them under its own API terms.
-          Your Ask Sentia conversation is saved only on this device (in <code>localStorage</code>, kept separately for
-          each account you sign in with) so it is still there when you come back. Use &ldquo;Clear chat&rdquo; in Ask
-          Sentia or &ldquo;Delete my data&rdquo; to remove it.
-          The API counts questions per visitor per day (using a one-way hash of the IP address that changes daily) to
-          cap costs.
-        </p>
-      </section>
-
-      <section className="stack gap-sm">
-        <h2>The Android and iOS apps</h2>
+        <h2>6. How long we keep data</h2>
         <ul className="muted">
-          <li>
-            The apps run the same code as the website, packaged with all its files, so they work offline. They ask for
-            no device permissions beyond internet access: no location, contacts, camera, photos, microphone or
-            advertising identifier, and they contain no advertising or third-party tracking SDKs.
-          </li>
-          <li>
-            Accounts are not offered in the apps today, so everything stays on your phone. If they are added, the
-            account section above applies and you will be able to delete your account from Settings.
-          </li>
-          <li>
-            Links to other sites (for example GitHub, or a source in Legends) open in your phone&apos;s browser, under
-            that site&apos;s own privacy policy. A feedback email opens in your own mail app.
-          </li>
-          <li>
-            Apple and Google may collect crash and usage diagnostics about apps you install under their own policies
-            and your device settings; Sentia doesn&apos;t receive personal information from them.
-          </li>
+          <li>Account, passkeys and cloud save: until you delete your account (or we close it under the Terms).</li>
+          <li>Unconfirmed sign-ups: deleted after 7 days. Verification and reset codes: 30 minutes. Sessions: 12 hours or 30 days.</li>
+          <li>Security counters: 15 minutes to 24 hours. Feedback: up to 1 year. Usage totals: about 13 months.</li>
+          <li>Emails we send may also be kept in Resend&apos;s delivery logs under its own retention policy.</li>
         </ul>
       </section>
 
       <section className="stack gap-sm">
-        <h2>Children</h2>
+        <h2>7. Deleting your data and your choices</h2>
         <p className="muted">
-          Sentia is a general-audience education app and is not directed at children under 13. We don&apos;t knowingly
-          collect personal information from children.
+          <strong>Settings → Delete my data</strong> permanently deletes the data on that device and, if you&apos;re signed in, your account, its passkeys, its cloud
+          save and its backup from our servers. You can also follow the steps on <Link href="/delete-account">Delete your data</Link> or email{" "}
+          <a href={supportMailto("Delete my Sentia account")}>{SUPPORT_EMAIL}</a>. Use <strong>Export JSON</strong> in Settings first if you want a copy. You can ask
+          us to access, correct or delete your information at any time, and depending on where you live you may have further rights under local law; we will honor
+          them.
         </p>
       </section>
 
       <section className="stack gap-sm">
-        <h2>Hosting</h2>
+        <h2>8. Security</h2>
         <p className="muted">
-          The public demo is served as static files by GitHub Pages. GitHub may log standard technical information
-          (such as IP address and browser type) when serving pages, under GitHub&apos;s privacy statement. Sentia
-          itself adds no cookies, third-party analytics or tracking scripts; its only usage measurement is the opt-in
-          anonymous counts described above.
+          Data travels over HTTPS. Passwords, session tokens, codes and links are stored only as hashes. Sign-ins are rate limited and lock after repeated failures.
+          No system is perfectly secure, so please use a unique password, keep your devices locked, and use Remember me only on devices you own.
         </p>
       </section>
 
       <section className="stack gap-sm">
-        <h2>Changes and contact</h2>
+        <h2>9. Children</h2>
         <p className="muted">
-          If this policy changes, the date above will be updated. For questions or data requests, see{" "}
-          <Link href="/support">Help &amp; support</Link>. See also the <Link href="/terms">Terms of use</Link>.
+          Sentia is not for children under 13, and we don&apos;t knowingly collect personal information from them. If you are 13 to 17, please use Sentia only with
+          a parent or guardian&apos;s permission. If you believe a child under 13 has created an account, email{" "}
+          <a href={supportMailto("Child account")}>{SUPPORT_EMAIL}</a> and we will delete it.
+        </p>
+      </section>
+
+      <section className="stack gap-sm">
+        <h2>10. The Android and iOS apps</h2>
+        <p className="muted">
+          The apps run the same code as the website. They ask for no device permissions beyond internet access (no location, contacts, camera, photos, microphone or
+          advertising ID) and include no ad or tracking SDKs. Apple and Google may collect diagnostics about apps you install under their own policies.
+        </p>
+      </section>
+
+      <section className="stack gap-sm">
+        <h2>11. Where data is processed</h2>
+        <p className="muted">
+          Sentia is operated from the United States (Maryland). Our providers may process data in the United States and other countries where they operate.
+        </p>
+      </section>
+
+      <section className="stack gap-sm">
+        <h2>12. Changes and contact</h2>
+        <p className="muted">
+          If this policy changes, we will update the date at the top and, for significant changes, tell signed-in users in the app or by email. Questions or
+          requests: <a href={supportMailto("Privacy question")}>{SUPPORT_EMAIL}</a> or <Link href="/support">Help &amp; support</Link>. See also the{" "}
+          <Link href="/terms">Terms and Conditions</Link>.
         </p>
       </section>
     </LegalPage>

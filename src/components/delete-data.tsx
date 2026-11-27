@@ -35,8 +35,8 @@ export function AboutPanel() {
         <Link href="/support" className="row gap-sm" style={{ display: "inline-flex", gap: 4 }}>
           <LifeBuoy size={14} aria-hidden="true" /> Help &amp; support
         </Link>
-        <Link href="/privacy">Privacy policy</Link>
-        <Link href="/terms">Terms of use</Link>
+        <Link href="/privacy">Privacy Policy</Link>
+        <Link href="/terms">Terms and Conditions</Link>
         <Link href="/delete-account">Deleting your data</Link>
       </span>
     </Panel>

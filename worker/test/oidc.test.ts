@@ -3,7 +3,7 @@ import { handle } from "../src/index";
 import { resetAccountLimiters } from "../src/accounts";
 import { toB64url } from "../src/auth";
 import { clearJwksCache, PROVIDERS, verifyIdToken } from "../src/oidc";
-import { ctx, FakeKV, jsonRes, makeEnv, mockFetch, PAGES } from "./helpers";
+import { ctx, FakeKV, jsonRes, makeEnv, mockFetch, PAGES, RESEND_KEY, resendMock, signUpAndVerify } from "./helpers";
 
 const NOW = Date.UTC(2026, 10, 26, 15, 0, 0);
 const NOW_S = Math.floor(NOW / 1000);
@@ -150,15 +150,47 @@ describe("Continue with Google / Apple", () => {
 
   it("links to an existing email account only when the provider verified the email", async () => {
     const { f } = jwksFetch();
-    const pw = await call(env, f, "/auth/signup", { email: "gina@gmail.com", password: "a long passphrase" });
+    const pw = await signUpAndVerify(env, { email: "gina@gmail.com", password: "a long passphrase" }, { now: NOW, next: f });
+    expect(pw.status).toBe(200);
+    // An unverified provider email is never used as the account email: a separate account with a private placeholder address.
     const n1 = await nonce(f);
-    const unverified = await call(env, f, "/auth/oauth/verify", { provider: "google", idToken: await google.sign(googleClaims(n1.nonce, { email_verified: false })), nonceId: n1.nonceId });
-    expect(unverified.status).toBe(409);
+    const unverified = await call(env, f, "/auth/oauth/verify", { provider: "google", idToken: await google.sign(googleClaims(n1.nonce, { email_verified: false, sub: "other-google-sub" })), nonceId: n1.nonceId });
+    expect(unverified.status).toBe(201);
+    expect(unverified.body.account.id).not.toBe(pw.body.account.id);
+    expect(unverified.body.account.email).toMatch(/@users\.sentia\.invalid$/);
     const n2 = await nonce(f);
     const linked = await call(env, f, "/auth/oauth/verify", { provider: "google", idToken: await google.sign(googleClaims(n2.nonce)), nonceId: n2.nonceId });
     expect(linked.status).toBe(200);
     expect(linked.body.account.id).toBe(pw.body.account.id);
-    expect(linked.body.account).toMatchObject({ hasPassword: true, providers: ["google"] });
+    expect(linked.body.account).toMatchObject({ hasPassword: true, providers: ["google"], emailVerified: true });
+  });
+
+  it("a verified Google sign-in takes over an unconfirmed email sign-up for the same address (drops its password)", async () => {
+    const { f } = jwksFetch();
+    const mail = resendMock(f);
+    env.RESEND_API_KEY = RESEND_KEY;
+    const squat = await call(env, mail.f, "/auth/signup", { email: "gina@gmail.com", password: "attacker passphrase" });
+    expect(squat.status).toBe(201);
+    expect(squat.body.token).toBeUndefined();
+    const n = await nonce(f);
+    const res = await call(env, f, "/auth/oauth/verify", { provider: "google", idToken: await google.sign(googleClaims(n.nonce)), nonceId: n.nonceId });
+    expect(res.status).toBe(200);
+    expect(res.body.account).toMatchObject({ email: "gina@gmail.com", hasPassword: false, emailVerified: true, providers: ["google"] });
+    // The squatter's password no longer works.
+    const signin = await call(env, f, "/auth/signin", { email: "gina@gmail.com", password: "attacker passphrase" });
+    expect(signin.status).toBe(401);
+    // And the old emailed code can't be used.
+    const code = await call(env, f, "/auth/verify", { email: "gina@gmail.com", code: mail.codeOf() });
+    expect(code.status).toBe(400);
+  });
+
+  it("new Google accounts with a verified email are verified right away (no code)", async () => {
+    const { f } = jwksFetch();
+    const n = await nonce(f);
+    const res = await call(env, f, "/auth/oauth/verify", { provider: "google", idToken: await google.sign(googleClaims(n.nonce)), nonceId: n.nonceId });
+    expect(res.status).toBe(201);
+    expect(res.body.token).toBeTruthy();
+    expect(res.body.account.emailVerified).toBe(true);
   });
 
   it("Apple: private-relay email, name from the first sign-in, string email_verified, hashed nonce accepted", async () => {

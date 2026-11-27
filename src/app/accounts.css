@@ -174,12 +174,6 @@ html[data-theme="light"] .apple-btn {
     padding-right: 12px;
   }
 }
-@media (max-width: 360px) {
-  .landing-signup {
-    display: none;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .strength-bar span {
     transition: none;

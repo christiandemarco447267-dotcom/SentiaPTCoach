@@ -23,6 +23,13 @@ SYMBOL_ALLOWLIST = ""
 GOOGLE_CLIENT_ID = ""
 APPLE_SERVICES_ID = ""
 APPLE_BUNDLE_ID = ""
+# Account emails (verify your email, reset your password) are sent with Resend (https://resend.com).
+# Also needs the RESEND_API_KEY secret:  npx wrangler secret put RESEND_API_KEY
+# Without that secret, new email + password sign-ups are paused (no bypass) and /health shows
+# emailVerification: false. Setup: README.md → "Email verification (Resend)".
+EMAIL_FROM = "Sentia <no-reply@sentiacoach.com>"
+# Where email buttons point when the request doesn't come from a known website (e.g. the phone apps).
+SITE_URL = "https://sentiacoach.com"
 # Optional background price alerts (Web Push): a contact for push services, e.g. "mailto:you@example.com".
 # Also needs the VAPID_PRIVATE_KEY / VAPID_PUBLIC_KEY secrets and the [triggers] block below. See README.md.
 # VAPID_SUBJECT = "mailto:you@example.com"

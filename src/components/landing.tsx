@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ArrowRight, Award, BellRing, ClipboardCheck, Compass, LineChart, Lock, MessageCircle, NotebookPen, Palette, ShieldCheck, Sparkles } from "lucide-react";
 import { assetPath } from "@/lib/asset";
 import { SiteFooter } from "./site-footer";
+import { LandingHeader } from "./landing-header";
+import { HelpChatLauncher } from "./help-chat";
 
 import { ACCOUNTS_ENABLED } from "@/lib/account-provider";
 
@@ -43,28 +45,7 @@ export function Landing() {
     <main className="landing">
       <div className="hero-grid-bg" style={{ backgroundImage: `url(${assetPath("/hero-grid.svg")})` }} />
       <div className="container" style={{ position: "relative" }}>
-        <header className="row between" style={{ padding: "24px 0" }}>
-          <div className="brand">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={assetPath("/brand-mark.webp")} alt="" className="brand-mark" width={36} height={36} decoding="async" />
-            Sentia
-          </div>
-          <span className="row gap-sm">
-            {ACCOUNTS_ENABLED ? (
-              <>
-                <Link href="/signin" className="btn btn-sm">
-                  Sign in
-                </Link>
-                <Link href="/signup" className="btn btn-sm btn-primary landing-signup">
-                  Create account
-                </Link>
-              </>
-            ) : null}
-            <Link href="/app" className="btn btn-sm">
-              Open app <ArrowRight size={16} />
-            </Link>
-          </span>
-        </header>
+        <LandingHeader accounts={ACCOUNTS_ENABLED} />
 
         <section className="landing-hero stack gap-lg animate-in" style={{ maxWidth: 720 }}>
           <span className="pill pill-primary" style={{ width: "fit-content" }}>
@@ -141,6 +122,7 @@ export function Landing() {
 
         <SiteFooter />
       </div>
+      <HelpChatLauncher />
     </main>
   );
 }

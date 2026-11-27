@@ -1,0 +1,328 @@
+{
+  "updated": "2026-11-26",
+  "supportEmail": "support@sentiacoach.com",
+  "faqs": [
+    {
+      "id": "what-is-sentia",
+      "q": "What is Sentia?",
+      "a": "Sentia is a paper-trading practice app. You buy and sell stocks with play money, write a short thesis for each idea, and get coaching on your process (like discipline and common biases). It's for learning, not for real trading.",
+      "keywords": [
+        "what",
+        "sentia",
+        "about",
+        "app",
+        "purpose",
+        "paper trading",
+        "simulator",
+        "practice",
+        "learn"
+      ]
+    },
+    {
+      "id": "real-money",
+      "q": "Is it real money? Can I lose or withdraw anything?",
+      "a": "No. Every balance and trade in Sentia is simulated. There's nothing to deposit, nothing to withdraw and no in-app purchases. Sentia isn't a brokerage and doesn't connect to one.",
+      "keywords": [
+        "real money",
+        "money",
+        "deposit",
+        "withdraw",
+        "cash out",
+        "lose",
+        "brokerage",
+        "broker",
+        "pay",
+        "cost",
+        "free",
+        "price of app",
+        "purchase"
+      ]
+    },
+    {
+      "id": "advice",
+      "q": "Does Sentia give investment advice?",
+      "a": "No. Sentia is educational only. It never tells you what to buy or sell, and nothing in it (insights, coach answers, examples) is financial advice. For real decisions, talk to a licensed professional.",
+      "keywords": [
+        "advice",
+        "recommend",
+        "should i buy",
+        "should i sell",
+        "tip",
+        "financial advisor",
+        "what to buy",
+        "pick"
+      ]
+    },
+    {
+      "id": "account-needed",
+      "q": "Do I need an account?",
+      "a": "No. You can use Sentia without one, and your progress stays on your device. A free account adds automatic cloud save, so your practice portfolio follows you to other devices and survives clearing your browser.",
+      "keywords": [
+        "account",
+        "need account",
+        "sign up",
+        "signup",
+        "register",
+        "without account",
+        "guest",
+        "create account"
+      ]
+    },
+    {
+      "id": "verify-email",
+      "q": "Why do I have to verify my email?",
+      "a": "When you create an account with email and password, Sentia emails you a 6-digit code and a one-click link to confirm the address is really yours. Enter the code or tap the link within 30 minutes. Until then the account can't be used. Didn't get it? Check spam, then tap Resend (you can resend once a minute, up to 5 times a day).",
+      "keywords": [
+        "verify",
+        "verification",
+        "confirm",
+        "code",
+        "6-digit",
+        "didn't get",
+        "no email",
+        "email not arriving",
+        "resend",
+        "spam",
+        "link expired",
+        "check your email",
+        "expired",
+        "unverified"
+      ]
+    },
+    {
+      "id": "forgot-password",
+      "q": "I forgot my password. How do I reset it?",
+      "a": "On the sign-in screen tap Forgot password, enter your email, and we'll send a code and a link. Choose a new password and you'll be signed in. For your security, every other device gets signed out. The email only arrives if an account exists for that address.",
+      "keywords": [
+        "forgot",
+        "password",
+        "reset",
+        "can't sign in",
+        "cannot log in",
+        "locked out",
+        "change password",
+        "new password",
+        "login"
+      ]
+    },
+    {
+      "id": "face-id",
+      "q": "How do I turn on Face ID or Touch ID?",
+      "a": "After you sign in, Sentia offers to turn on Face ID / Touch ID (or your device's fingerprint or Windows Hello). You can also do it anytime in Settings → Account. It uses a passkey: your face or fingerprint never leaves your device, and Sentia only stores a public key.",
+      "keywords": [
+        "face id",
+        "touch id",
+        "fingerprint",
+        "passkey",
+        "biometric",
+        "windows hello",
+        "faceid",
+        "touchid"
+      ]
+    },
+    {
+      "id": "google-apple",
+      "q": "Can I sign in with Google or Apple?",
+      "a": "Yes, on the website when the Continue with Google / Continue with Apple buttons are shown. If Google or Apple has already verified your email, you don't need a code from us. In the phone apps, use email and password for now.",
+      "keywords": [
+        "google",
+        "apple",
+        "sign in with google",
+        "sign in with apple",
+        "gmail",
+        "icloud",
+        "oauth",
+        "continue with"
+      ]
+    },
+    {
+      "id": "autosave-devices",
+      "q": "How does auto-save across devices work?",
+      "a": "When you're signed in, Sentia saves your practice portfolio to your account a few seconds after each change. Sign in on another device and your progress is there. If two devices changed at the same time, Sentia keeps the newer copy and saves the other one as a backup you can restore in Settings.",
+      "keywords": [
+        "save",
+        "auto-save",
+        "autosave",
+        "sync",
+        "devices",
+        "another device",
+        "phone and computer",
+        "cloud",
+        "backup",
+        "lost progress",
+        "missing data",
+        "laptop",
+        "computer",
+        "tablet",
+        "ipad",
+        "progress"
+      ]
+    },
+    {
+      "id": "remember-me",
+      "q": "What does Remember me do?",
+      "a": "With Remember me checked, you stay signed in on that device for 30 days. Unchecked, you're signed out when you close the tab (or after 12 hours). Use it only on your own device.",
+      "keywords": [
+        "remember me",
+        "stay signed in",
+        "signed out",
+        "logged out",
+        "session",
+        "keep me logged in"
+      ]
+    },
+    {
+      "id": "delete-account",
+      "q": "How do I delete my account and data?",
+      "a": "Go to Settings → Delete my data. If you're signed in, this permanently deletes your account and everything Sentia saved for it on the server, plus the data on that device. You can also use the Delete your data page on the website. Export a backup first if you want to keep a copy.",
+      "keywords": [
+        "delete",
+        "remove",
+        "close account",
+        "erase",
+        "wipe",
+        "delete account",
+        "delete data",
+        "gdpr",
+        "privacy request"
+      ]
+    },
+    {
+      "id": "privacy",
+      "q": "What data does Sentia collect?",
+      "a": "Very little. Without an account, your data stays on your device. With an account, Sentia stores your email, a securely hashed password (or your Google/Apple ID), your passkeys' public keys, and your practice portfolio. Usage counts are anonymous and opt-in. Sentia doesn't sell data or use tracking ads. The Privacy Policy has the details.",
+      "keywords": [
+        "privacy",
+        "data",
+        "collect",
+        "track",
+        "tracking",
+        "sell",
+        "personal information",
+        "cookies",
+        "analytics",
+        "secure",
+        "security"
+      ]
+    },
+    {
+      "id": "prices",
+      "q": "Are prices real-time?",
+      "a": "Prices come from market-data providers (Finnhub, with Yahoo Finance as a backup) and may be delayed or occasionally wrong. If the price service can't be reached, Sentia shows simulated prices labelled Demo. Never use Sentia prices for real trades.",
+      "keywords": [
+        "price",
+        "prices",
+        "real-time",
+        "real time",
+        "delayed",
+        "quote",
+        "quotes",
+        "demo",
+        "wrong price",
+        "market data",
+        "stock price",
+        "ticker"
+      ]
+    },
+    {
+      "id": "coach",
+      "q": "What is Ask Sentia (the AI coach)?",
+      "a": "Ask Sentia is the investing coach inside the app. It explains concepts and reviews your practice process using your own paper-account numbers. Your question and a short portfolio summary are sent to an AI provider (OpenAI) to write the answer. It's educational only and can be wrong. This Help chat is separate and only answers questions about using Sentia.",
+      "keywords": [
+        "coach",
+        "ask sentia",
+        "ai",
+        "chatgpt",
+        "openai",
+        "assistant",
+        "bot",
+        "insights"
+      ]
+    },
+    {
+      "id": "leagues",
+      "q": "What are Leagues?",
+      "a": "Friend leagues let you compare Discipline Scores (30-day return breaks ties) with friends by sharing a six-character code or invite link. Only your display name, Discipline Score and 30-day return are shared; your holdings and trades stay private. Leagues appear only on versions of Sentia where they're switched on, and there are no prizes or real money.",
+      "keywords": [
+        "league",
+        "leagues",
+        "friends",
+        "compete",
+        "competition",
+        "leaderboard",
+        "class",
+        "classroom",
+        "group"
+      ]
+    },
+    {
+      "id": "apps",
+      "q": "Is there an iPhone or Android app?",
+      "a": "Sentia works in any modern browser on phones and computers, and you can add it to your home screen. Native iPhone and Android apps use the same code; Google and Apple sign-in and Face ID in the apps are coming later, so use email and password there for now.",
+      "keywords": [
+        "iphone",
+        "android",
+        "app store",
+        "google play",
+        "ios",
+        "mobile",
+        "download",
+        "install",
+        "home screen",
+        "native"
+      ]
+    },
+    {
+      "id": "offline",
+      "q": "Does Sentia work offline?",
+      "a": "Mostly. The app opens without a connection and keeps your changes on the device. Live prices, the AI coach and cloud save need a connection; when you're back online, your signed-in changes are saved automatically.",
+      "keywords": [
+        "offline",
+        "no internet",
+        "no connection",
+        "airplane"
+      ]
+    },
+    {
+      "id": "age",
+      "q": "Is there an age requirement?",
+      "a": "Sentia isn't meant for children under 13. If you're 13 to 17, please use it with a parent or guardian's permission.",
+      "keywords": [
+        "age",
+        "kids",
+        "children",
+        "teen",
+        "minor",
+        "student",
+        "how old",
+        "parent"
+      ]
+    },
+    {
+      "id": "contact",
+      "q": "How do I contact support?",
+      "a": "Email support@sentiacoach.com and we'll aim to reply within 3 business days. You can also tap Feedback in the app menu to report a bug or share an idea.",
+      "keywords": [
+        "contact",
+        "support",
+        "help",
+        "email",
+        "human",
+        "person",
+        "bug",
+        "report",
+        "problem",
+        "issue",
+        "feedback",
+        "talk to someone",
+        "crash",
+        "crashing",
+        "broken",
+        "not working",
+        "error",
+        "glitch",
+        "stuck"
+      ]
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
+import { ForgotPasswordEntry } from "@/components/auth/account-entry";
 
 export const metadata: Metadata = {
   title: "Reset password",
@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <ForgotPasswordForm />;
+  return <ForgotPasswordEntry />;
 }

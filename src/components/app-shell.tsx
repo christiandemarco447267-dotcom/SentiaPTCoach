@@ -43,6 +43,7 @@ import { isFirebaseConfigured } from "@/lib/firebase-config";
 import { NAV_SECTIONS, visibleNav } from "@/lib/nav";
 import { DemoPricesBadge, Loading, ToastHost } from "./ui";
 import { FeedbackButton } from "./feedback-sheet";
+import { NavLegalLinks } from "./site-footer";
 import { FoldWatcher } from "./fold-watcher";
 import { PageViewTracker } from "./pilot-prompts";
 import { openSearchPalette } from "./command-palette";
@@ -247,6 +248,7 @@ function Sidebar() {
         <AccountActions />
       </div>
       <ProfileChip />
+      <NavLegalLinks />
     </aside>
   );
 }
@@ -293,7 +295,7 @@ function MobileDrawer({
   onClose: () => void;
   returnFocusRef: React.RefObject<HTMLButtonElement | null>;
 }) {
-  const drawerRef = useRef<HTMLElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
   // Escape closes; focus moves into the drawer on open, Tab is kept inside it,
@@ -337,7 +339,7 @@ function MobileDrawer({
       aria-hidden={!open}
       inert={!open}
     >
-      <aside
+      <div
         ref={drawerRef}
         id="mobile-drawer"
         className={clsx("drawer", open && "open")}
@@ -355,7 +357,8 @@ function MobileDrawer({
         <FeedbackButton className="drawer-feedback" onOpen={onClose} />
         <AccountActions onNavigate={onClose} />
         <ProfileChip onNavigate={onClose} />
-      </aside>
+        <NavLegalLinks onNavigate={onClose} />
+      </div>
     </div>
   );
 }

@@ -7,6 +7,7 @@
 // The top half of this file is framework-free and unit-tested; the bottom half talks to the API.
 
 import { apiUrl } from "./api-config";
+import { BASE_PATH } from "./asset";
 
 export const SESSION_KEY = "sentia.session";
 
@@ -16,6 +17,8 @@ export type PublicAccount = {
   name: string;
   createdAt: string;
   hasPassword: boolean;
+  /** false only for an email sign-up that hasn't been confirmed (such accounts never get a session). */
+  emailVerified?: boolean;
   providers: ("google" | "apple")[];
   passkeys: { id: string; name: string; createdAt: string; lastUsedAt?: string }[];
 };
@@ -121,6 +124,76 @@ export function passwordError(pw: string, email: string): string | null {
 
 export function looksLikeEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+// ---- email verification (pure helpers) ---------------------------------------------------
+
+/** "Check your email" state kept across reloads in this tab (and in localStorage so the link can find "Remember me"). */
+export const VERIFY_PENDING_KEY = "sentia.verify-pending";
+export type PendingVerification = { email: string; remember: boolean; resendAt: number };
+
+/** Server answer for an account that still needs its email confirmed. */
+export type VerificationNeeded = { needsVerification: true; email: string; emailSent: boolean; resendAfter: number; sendError?: string };
+
+export function isVerificationNeeded(body: unknown): body is VerificationNeeded {
+  const b = body as Record<string, unknown> | null;
+  return Boolean(b && b.needsVerification === true && typeof b.email === "string");
+}
+
+/** Keep only the digits of a typed or pasted code, at most 6 ("123 456", "123-456" → "123456"). */
+export function cleanCode(raw: string): string {
+  return raw.replace(/\D/g, "").slice(0, 6);
+}
+
+/** Read the link token from a verify / reset URL (?token=… or #token=…). */
+export function tokenFromLocation(search: string, hash = ""): string | null {
+  for (const part of [search, hash.replace(/^#/, "?")]) {
+    const t = new URLSearchParams(part).get("token");
+    if (t && /^[A-Za-z0-9_-]{40,64}$/.test(t)) return t;
+  }
+  return null;
+}
+
+/** Seconds left before Resend can be pressed again (never negative). */
+export function secondsUntil(at: number, now = Date.now()): number {
+  return Math.max(0, Math.ceil((at - now) / 1000));
+}
+
+export function readPendingVerification(stores: SessionStores, now = Date.now()): PendingVerification | null {
+  for (const store of [stores.session, stores.local]) {
+    try {
+      const raw = store?.getItem(VERIFY_PENDING_KEY);
+      if (!raw) continue;
+      const p = JSON.parse(raw) as PendingVerification;
+      if (typeof p?.email === "string" && looksLikeEmail(p.email) && typeof p.resendAt === "number") {
+        // Forget it after a day: the code expired long ago and the address may be someone else's.
+        if (now - p.resendAt < 24 * 3600 * 1000) return { email: p.email, remember: p.remember === true, resendAt: p.resendAt };
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+}
+
+export function writePendingVerification(stores: SessionStores, p: PendingVerification): void {
+  for (const store of [stores.session, stores.local]) {
+    try {
+      store?.setItem(VERIFY_PENDING_KEY, JSON.stringify(p));
+    } catch {
+      // ignore
+    }
+  }
+}
+
+export function clearPendingVerification(stores: SessionStores): void {
+  for (const store of [stores.session, stores.local]) {
+    try {
+      store?.removeItem(VERIFY_PENDING_KEY);
+    } catch {
+      // ignore
+    }
+  }
 }
 
 // ---- API client ---------------------------------------------------------------------
@@ -250,12 +323,81 @@ function adopt(res: SessionResponse): PublicAccount {
   return res.account;
 }
 
-export async function signUpWithPassword(input: { email: string; password: string; name: string; remember: boolean }): Promise<PublicAccount> {
-  return adopt(await accountApi<SessionResponse>("/auth/signup", { body: input }));
+/** This site's own address (origin + base path), so email buttons come back here (github.io or sentiacoach.com). */
+export function linkBase(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  const { protocol, origin } = window.location;
+  return protocol === "https:" || protocol === "http:" ? `${origin}${BASE_PATH}` : undefined;
 }
 
-export async function signInWithPassword(input: { email: string; password: string; remember: boolean }): Promise<PublicAccount> {
-  return adopt(await accountApi<SessionResponse>("/auth/signin", { body: input }));
+function rememberPending(v: VerificationNeeded, remember: boolean): VerificationNeeded {
+  const wait = v.resendAfter > 0 ? v.resendAfter : 0;
+  writePendingVerification(browserStores(), { email: v.email, remember, resendAt: Date.now() + wait * 1000 });
+  return v;
+}
+
+export function pendingVerification(): PendingVerification | null {
+  return readPendingVerification(browserStores());
+}
+
+export function forgetPendingVerification(): void {
+  clearPendingVerification(browserStores());
+}
+
+/** Create the account. It always needs its email confirmed first, so this returns the "check your email" state (no session). */
+export async function signUpWithPassword(input: { email: string; password: string; name: string; remember: boolean }): Promise<VerificationNeeded> {
+  const res = await accountApi<Record<string, unknown>>("/auth/signup", { body: { ...input, linkBase: linkBase() } });
+  if (!isVerificationNeeded(res)) throw new AccountError("Something went wrong. Please try again.", 500, res);
+  return rememberPending(res, input.remember);
+}
+
+/** Sign in, or (for an unconfirmed email) get the "check your email" state instead of a session. */
+export async function signInWithPassword(input: { email: string; password: string; remember: boolean }): Promise<PublicAccount | VerificationNeeded> {
+  try {
+    return adopt(await accountApi<SessionResponse>("/auth/signin", { body: { ...input, linkBase: linkBase() } }));
+  } catch (error) {
+    if (error instanceof AccountError && error.status === 403 && isVerificationNeeded(error.body)) return rememberPending(error.body, input.remember);
+    throw error;
+  }
+}
+
+/** Confirm the email with the 6-digit code or the link token; signs in on success. */
+export async function verifyEmail(input: { email: string; code: string; remember: boolean } | { token: string; remember: boolean }): Promise<PublicAccount> {
+  const account = adopt(await accountApi<SessionResponse>("/auth/verify", { body: input }));
+  forgetPendingVerification();
+  return account;
+}
+
+/** Send a new verification email. Resolves with when Resend may be pressed again (ms timestamp). */
+export async function resendVerification(email: string, remember: boolean): Promise<number> {
+  try {
+    const res = await accountApi<{ resendAfter?: number }>("/auth/verify/resend", { body: { email, linkBase: linkBase() } });
+    const at = Date.now() + (res.resendAfter ?? 60) * 1000;
+    writePendingVerification(browserStores(), { email, remember, resendAt: at });
+    return at;
+  } catch (error) {
+    if (error instanceof AccountError && error.status === 429 && typeof error.body?.retryAfter === "number") {
+      writePendingVerification(browserStores(), { email, remember, resendAt: Date.now() + error.body.retryAfter * 1000 });
+    }
+    throw error;
+  }
+}
+
+/** Ask for a password-reset email (the answer is the same whether or not the account exists). */
+export async function requestPasswordReset(email: string): Promise<number> {
+  const res = await accountApi<{ resendAfter?: number }>("/auth/password/forgot", { body: { email, linkBase: linkBase() } });
+  return Date.now() + (res.resendAfter ?? 60) * 1000;
+}
+
+export async function checkResetLink(token: string): Promise<boolean> {
+  const res = await accountApi<{ valid?: boolean }>("/auth/password/check", { body: { token } });
+  return res.valid === true;
+}
+
+/** Set a new password with the emailed link token or code. Every other session ends. Returns the account email. */
+export async function resetPassword(input: { token: string; password: string } | { email: string; code: string; password: string }): Promise<string> {
+  const res = await accountApi<{ email?: string }>("/auth/password/reset", { body: input });
+  return res.email ?? ("email" in input ? input.email : "");
 }
 
 export function updateAccount(account: PublicAccount): void {

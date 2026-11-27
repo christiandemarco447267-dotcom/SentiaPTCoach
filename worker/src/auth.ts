@@ -7,6 +7,12 @@
 //   acct:cred:<credentialId>    → user id                (passkey sign-in lookup)
 //   acct:sess:<sha256(token)>   → SessionRecord JSON     (expires with the session via KV TTL)
 //   acct:fail:<sha256(email)>   → failed sign-in counter  (15-minute lockout window)
+//   (email verification + password reset records: see email-verify.ts)
+//
+// Email verification: accounts created with email + password start with emailVerified=false and
+// get no session until the address is confirmed. Accounts created before verification existed
+// have no emailVerified field and count as verified ("grandfathered"), so nobody is locked out.
+// Unverified records carry a KV TTL (UNVERIFIED_TTL_S) and are also purged lazily after 7 days.
 //
 // Passwords: PBKDF2-SHA256 with a random 16-byte salt per user. Cloudflare Workers cap PBKDF2
 // at 100,000 iterations, so that is what we use; the count is stored with each hash so it can
@@ -24,6 +30,10 @@ export const EMAIL_MAX = 254;
 export const NAME_MAX = 60;
 export const MAX_FAILED_SIGNINS = 10;
 export const FAIL_WINDOW_S = 15 * 60;
+/** Unverified sign-ups older than this are deleted the next time anyone touches them. */
+export const UNVERIFIED_MAX_AGE_MS = 7 * 24 * 3600 * 1000;
+/** KV safety net: unverified records expire on their own a day after the lazy-purge age. */
+export const UNVERIFIED_TTL_S = 8 * 24 * 3600;
 
 export type PasswordHash = { alg: "pbkdf2-sha256"; iter: number; salt: string; hash: string };
 
@@ -49,6 +59,10 @@ export type UserRecord = {
   passkeys: StoredPasskey[];
   /** Linked sign-in providers: provider → that provider's stable user id (`sub`). */
   providers?: Partial<Record<"google" | "apple", string>>;
+  /** false = signed up with email + password and hasn't confirmed the address yet. Absent = verified (incl. grandfathered accounts). */
+  emailVerified?: boolean;
+  /** Sessions created before this time (ms) are no longer accepted (set by a password reset). */
+  sessionsValidAfter?: number;
 };
 
 export type SessionRecord = { uid: string; exp: number; remember: boolean; createdAt: number };
@@ -59,6 +73,7 @@ export type PublicAccount = {
   name: string;
   createdAt: string;
   hasPassword: boolean;
+  emailVerified: boolean;
   providers: ("google" | "apple")[];
   passkeys: { id: string; name: string; createdAt: string; lastUsedAt?: string }[];
 };
@@ -172,21 +187,65 @@ export async function getUser(kv: KVNamespace, id: string): Promise<UserRecord |
   }
 }
 
+/** Grandfathered accounts (no field) and confirmed ones are verified; only an explicit false is not. */
+export function isVerified(user: UserRecord): boolean {
+  return user.emailVerified !== false;
+}
+
+/** An unverified sign-up that was never confirmed within 7 days. */
+export function isStaleUnverified(user: UserRecord, now: number): boolean {
+  if (isVerified(user)) return false;
+  const created = Date.parse(user.createdAt);
+  return Number.isFinite(created) && now - created > UNVERIFIED_MAX_AGE_MS;
+}
+
 export async function putUser(kv: KVNamespace, user: UserRecord): Promise<void> {
-  await kv.put(userKey(user.id), JSON.stringify(user));
+  // Unverified records expire on their own (a safety net behind the lazy 7-day purge).
+  const opts = isVerified(user) ? undefined : { expirationTtl: UNVERIFIED_TTL_S };
+  await kv.put(userKey(user.id), JSON.stringify(user), opts);
+}
+
+/** Write the email → user id pointer (expiring with the user record while unverified). */
+export async function putEmailPointer(kv: KVNamespace, user: UserRecord): Promise<void> {
+  const opts = isVerified(user) ? undefined : { expirationTtl: UNVERIFIED_TTL_S };
+  await kv.put(await emailKey(user.email), user.id, opts);
+}
+
+/** Mark the address confirmed and make the records permanent. */
+export async function markVerified(kv: KVNamespace, user: UserRecord): Promise<void> {
+  delete user.emailVerified;
+  await putUser(kv, user);
+  await putEmailPointer(kv, user);
 }
 
 export async function findUserIdByEmail(kv: KVNamespace, email: string): Promise<string | null> {
   return kv.get(await emailKey(email));
 }
 
+/**
+ * The account for an email, purging it first if it is an unverified sign-up older than 7 days
+ * (so an abandoned or squatted sign-up frees the address).
+ */
+export async function findUserByEmail(kv: KVNamespace, email: string, now: number): Promise<UserRecord | null> {
+  const uid = await findUserIdByEmail(kv, email);
+  const user = uid ? await getUser(kv, uid) : null;
+  if (!user) return null;
+  if (isStaleUnverified(user, now)) {
+    await deleteUserRecords(kv, user, null);
+    return null;
+  }
+  return user;
+}
+
 export async function createUser(
   kv: KVNamespace,
-  input: { email: string; password?: string; name: string; provider?: { name: "google" | "apple"; sub: string } },
+  input: { email: string; password?: string; name: string; provider?: { name: "google" | "apple"; sub: string }; unverified?: boolean },
   now: number,
 ): Promise<UserRecord | null> {
   const key = await emailKey(input.email);
-  if (await kv.get(key)) return null;
+  const existingId = await kv.get(key);
+  // A pointer to a record that no longer exists (expired unverified sign-up) doesn't block the address.
+  if (existingId && (await getUser(kv, existingId))) return null;
   const user: UserRecord = {
     id: `u_${randomToken(15)}`,
     email: input.email,
@@ -195,12 +254,13 @@ export async function createUser(
     ...(input.password ? { password: await hashPassword(input.password) } : {}),
     passkeys: [],
     ...(input.provider ? { providers: { [input.provider.name]: input.provider.sub } } : {}),
+    ...(input.unverified ? { emailVerified: false } : {}),
   };
   // KV has no transactions: write the user first, then claim the email. A lost race
   // (two sign-ups for one email within KV's propagation window) leaves an orphan user record
   // nobody can sign in to; acceptable at pilot scale.
   await putUser(kv, user);
-  await kv.put(key, user.id);
+  await putEmailPointer(kv, user);
   if (input.provider) await kv.put(providerKey(input.provider.name, input.provider.sub), user.id);
   return user;
 }
@@ -213,6 +273,9 @@ export async function deleteUserRecords(kv: KVNamespace, user: UserRecord, token
   for (const [provider, sub] of Object.entries(user.providers ?? {})) if (sub) await kv.delete(providerKey(provider as "google" | "apple", sub));
   await kv.delete(await emailKey(user.email));
   await kv.delete(userKey(user.id));
+  // Pending email codes (their link tokens expire within 30 minutes and then point nowhere).
+  await kv.delete(`acct:chal:verify:${user.id}`);
+  await kv.delete(`acct:chal:reset:${user.id}`);
   if (token) await kv.delete(await sessKey(token));
 }
 
@@ -223,6 +286,7 @@ export function publicAccount(user: UserRecord): PublicAccount {
     name: user.name,
     createdAt: user.createdAt,
     hasPassword: Boolean(user.password),
+    emailVerified: isVerified(user),
     providers: (Object.keys(user.providers ?? {}) as ("google" | "apple")[]).sort(),
     passkeys: user.passkeys.map(({ id, name, createdAt, lastUsedAt }) => ({ id, name, createdAt, ...(lastUsedAt ? { lastUsedAt } : {}) })),
   };
@@ -263,6 +327,9 @@ export async function authenticate(request: Request, env: Env, now: number): Pro
   if (!session.uid || session.exp <= now) return null;
   const user = await getUser(kv, session.uid);
   if (!user) return null;
+  // No access until the email is confirmed, and none for sessions revoked by a password reset.
+  if (!isVerified(user)) return null;
+  if (user.sessionsValidAfter && session.createdAt < user.sessionsValidAfter) return null;
   return { token, session, user };
 }
 

@@ -88,7 +88,7 @@ export function SignUpForm() {
           {busy ? "Creating account…" : "Create account"}
         </button>
         <span className="small muted">
-          By creating an account you agree to the <Link href="/terms">Terms</Link> and <Link href="/privacy">Privacy policy</Link>.
+          By creating an account you agree to the <Link href="/terms">Terms and Conditions</Link> and <Link href="/privacy">Privacy Policy</Link>.
         </span>
         {error ? <FormMessage tone="error">{error}</FormMessage> : null}
       </form>

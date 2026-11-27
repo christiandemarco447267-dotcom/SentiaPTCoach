@@ -16,6 +16,8 @@ export interface Env {
   VAPID_PRIVATE_KEY?: string;
   /** Public key (base64url, uncompressed P-256); the same value goes in NEXT_PUBLIC_VAPID_PUBLIC_KEY. */
   VAPID_PUBLIC_KEY?: string;
+  /** Resend (https://resend.com) API key for verification + password-reset emails. Missing = no email sign-up. */
+  RESEND_API_KEY?: string;
 
   // ---- plain vars (wrangler.toml [vars]) ----
   ALLOWED_ORIGINS?: string;
@@ -32,6 +34,10 @@ export interface Env {
   APPLE_SERVICES_ID?: string;
   /** Optional: the iOS app's bundle id, accepted as an Apple token audience for a future native sign-in. */
   APPLE_BUNDLE_ID?: string;
+  /** Sender for account emails, e.g. "Sentia <no-reply@sentiacoach.com>" (the domain must be verified in Resend). */
+  EMAIL_FROM?: string;
+  /** Public site address used in email links when the request doesn't come from a known website. */
+  SITE_URL?: string;
 }
 
 export function intVar(value: string | undefined, fallback: number, min = 0, max = Number.MAX_SAFE_INTEGER): number {

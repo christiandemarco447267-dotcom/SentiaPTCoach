@@ -1,6 +1,7 @@
 // In-app feedback: payload building, validation and the no-API fallback links (pure parts unit-tested).
 import { apiConfigured, apiUrl, APP_VERSION } from "./api-config";
 import { formatCurrency, formatNumber } from "./format";
+import { SUPPORT_EMAIL } from "./support";
 import type { PortfolioSummary } from "./portfolio";
 
 export const FEEDBACK_KINDS = [
@@ -11,8 +12,8 @@ export const FEEDBACK_KINDS = [
 export type FeedbackKind = (typeof FEEDBACK_KINDS)[number]["key"];
 
 export const FEEDBACK_MAX = 2000;
-/** Optional public contact address for the no-API fallback (repo variable NEXT_PUBLIC_FEEDBACK_EMAIL). Never hardcoded. */
-export const FEEDBACK_EMAIL = (process.env.NEXT_PUBLIC_FEEDBACK_EMAIL ?? "").trim();
+/** Public contact address (support page, legal pages, the no-API feedback fallback). NEXT_PUBLIC_FEEDBACK_EMAIL overrides the support inbox. */
+export const FEEDBACK_EMAIL = (process.env.NEXT_PUBLIC_FEEDBACK_EMAIL ?? "").trim() || SUPPORT_EMAIL;
 export const GITHUB_ISSUES_URL = "https://github.com/christiandemarco447267-dotcom/Cursor-/issues/new";
 
 export type FeedbackContext = {
